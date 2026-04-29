@@ -151,6 +151,11 @@ namespace OllamaCopilot
 
             ITrackingPoint anchor = snapshot.CreateTrackingPoint(caret, PointTrackingMode.Negative);
 
+            // Prepend file header so the model knows the language and project layout.
+            string fileHeader = FileHeaderBuilder.TryBuildFileHeader(_view);
+            if (!string.IsNullOrEmpty(fileHeader))
+                prefix = fileHeader + prefix;
+
             // Cache check — we may have arrived here via the debounce timer after the
             // synchronous check in OnTextBufferChanged already missed; check again in case
             // something was stored in the interim.
@@ -360,6 +365,11 @@ namespace OllamaCopilot
             int suffixEnd   = Math.Min(snapshot.Length, caret + Math.Max(0, opts.MaxSuffixChars));
             string prefix = snapshot.GetText(prefixStart, caret - prefixStart);
             string suffix = snapshot.GetText(caret, suffixEnd - caret);
+
+            // Match the header prepended by RequestSuggestionAsync so cache keys align.
+            string fileHeader = FileHeaderBuilder.TryBuildFileHeader(_view);
+            if (!string.IsNullOrEmpty(fileHeader))
+                prefix = fileHeader + prefix;
 
             string cached = _cache.TryGetExact(prefix, suffix)
                          ?? _cache.TryGetByExtension(prefix, suffix);
