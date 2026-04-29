@@ -21,6 +21,9 @@ def quicksort(arr):
 
 - **FIM autocomplete** — uses Ollama's native `suffix` parameter, so any FIM-capable code model works out of the box (qwen2.5-coder, codellama, codegemma, deepseek-coder, starcoder2, …).
 - **Debounced** — ~300 ms by default; in-flight requests are cancelled the moment you keep typing.
+- **Instant cache replay** — backspacing over a recent suggestion or typing the first character of one re-shows it immediately from an in-memory LRU cache, with no network call and no debounce delay.
+- **File-path prompt header** — the file's solution-relative path is prepended as a comment (`// File: src/Services/UserService.cs`) so the model knows the language and can pick up project conventions from directory names.
+- **Output post-processing** — raw FIM output is cleaned before display: leading newlines on fresh lines are stripped, mid-line completions are truncated to one line, suffix overlap with existing buffer text is removed, unbalanced brackets are truncated, and echoed prefix text is stripped.
 - **Inline ghost text** — multi-line suggestions render in a faded color directly in the editor, aligned with your code's font.
 - **Tab to accept, Esc to dismiss** — only intercepted when a suggestion is actually showing.
 - **HTTP Basic auth** — for self-hosted instances behind a reverse proxy (nginx, Caddy, Traefik, Cloudflare Access).
@@ -147,13 +150,21 @@ The extension is a no-op if:
 ```
 keystroke
    ↓
-TextBuffer.Changed         ← in SuggestionSession
-   ↓ (cancel in-flight CTS, start new one)
-Task.Delay(debounceMs, ct) ← cancellable wait
+TextBuffer.Changed                   ← in SuggestionSession
+   ↓ cancel in-flight CTS
+cache hit? ──yes──→ render immediately (no debounce, no network)
+   ↓ miss
+Task.Delay(debounceMs, ct)           ← cancellable wait
    ↓
 snapshot prefix + suffix around caret
+prepend "// File: <solution-relative-path>\n" header
    ↓
-POST {url}/api/generate    ← Ollama, with `suffix` for native FIM
+cache hit (second check)? ──yes──→ render
+   ↓ miss
+POST {url}/api/generate              ← Ollama, `suffix` for native FIM
+   ↓
+CompletionPostProcessor.Clean()      ← strip noise from raw FIM output
+store cleaned completion in LRU cache
    ↓
 re-validate caret hasn't moved
    ↓
@@ -174,7 +185,10 @@ OllamaCopilot/
 ├── OllamaClient.cs                    /api/generate + FIM + Basic auth
 ├── StatusBar.cs                       Status bar helper
 ├── TextViewListener.cs                MEF: defines adornment layer, attaches sessions
-├── SuggestionSession.cs               Per-view: debounce, request, render, accept
+├── SuggestionSession.cs               Per-view: debounce, cache, request, render, accept
+├── CompletionPostProcessor.cs         Cleans raw FIM output (7-stage pipeline)
+├── CompletionCache.cs                 Per-view bounded LRU cache (prefix, suffix) → completion
+├── FileHeaderBuilder.cs               Builds the "// File: …" prompt header
 ├── CommandFilter.cs                   Tab/Esc interception
 ├── CommandFilterProvider.cs           MEF: chains the filter into IVsTextView
 └── README.md                          this file
