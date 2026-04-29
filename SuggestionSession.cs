@@ -36,12 +36,14 @@ namespace OllamaCopilot
 
         private readonly IWpfTextView _view;
         private readonly OllamaClient _client = new OllamaClient();
+        private readonly CompletionCache _cache = new CompletionCache();
 
         private CancellationTokenSource _cts;
         private IAdornmentLayer _layer;
         private string _suggestion;          // raw text returned by Ollama (may be multi-line)
         private ITrackingPoint _anchor;      // tracks the cursor position the suggestion is for
         private bool _suppressBufferEvent;   // set while applying our own edits
+        private string _lastSeenModel;       // for detecting model changes that require a cache clear
 
         private SuggestionSession(IWpfTextView view)
         {
@@ -65,13 +67,16 @@ namespace OllamaCopilot
 
             if (!IsExtensionEnabled()) return;
 
-            // Cancel any in-flight request, start a new debounced one.
+            // Cancel any in-flight request.
             _cts?.Cancel();
-            _cts = new CancellationTokenSource();
-            CancellationToken token = _cts.Token;
+            _cts = null;
 
-            int debounce = SafeGetDebounceMs();
-            _ = ScheduleAsync(debounce, token);
+            // Fast path: serve instantly from cache — no debounce, no network call.
+            if (TryShowFromCache()) return;
+
+            // Cache miss — start a debounced Ollama request.
+            _cts = new CancellationTokenSource();
+            _ = ScheduleAsync(SafeGetDebounceMs(), _cts.Token);
         }
 
         private void OnCaretPositionChanged(object sender, CaretPositionChangedEventArgs e)
@@ -127,6 +132,9 @@ namespace OllamaCopilot
             OptionsPage opts = TryGetOptions();
             if (opts == null || !opts.Enabled) return;
 
+            // Clear the cache when the model changes so stale completions are not shown.
+            CheckModelChange(opts);
+
             ITextSnapshot snapshot = _view.TextSnapshot;
             int caret = _view.Caret.Position.BufferPosition.Position;
             int prefixStart = Math.Max(0, caret - Math.Max(0, opts.MaxPrefixChars));
@@ -142,6 +150,17 @@ namespace OllamaCopilot
             if (prefix.Length == 0 && suffix.Length == 0) return;
 
             ITrackingPoint anchor = snapshot.CreateTrackingPoint(caret, PointTrackingMode.Negative);
+
+            // Cache check — we may have arrived here via the debounce timer after the
+            // synchronous check in OnTextBufferChanged already missed; check again in case
+            // something was stored in the interim.
+            string cachedCompletion = _cache.TryGetExact(prefix, suffix)
+                                   ?? _cache.TryGetByExtension(prefix, suffix);
+            if (cachedCompletion != null)
+            {
+                ShowSuggestion(anchor, cachedCompletion);
+                return;
+            }
 
             string username = null, password = null;
             if (opts.UseAuthentication)
@@ -178,6 +197,10 @@ namespace OllamaCopilot
             // Post-process on the background thread — pure CPU work, no UI access needed.
             completion = CompletionPostProcessor.Clean(completion, lineBeforeCursor, lineAfterCursor, suffix);
             if (completion == null) return;
+
+            // Store the post-processed completion before switching back to the UI thread.
+            // The cache is thread-safe so calling Store here is fine.
+            _cache.Store(prefix, suffix, completion);
 
             // Back to UI to render — re-validate that the world hasn't moved.
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(ct);
@@ -313,6 +336,47 @@ namespace OllamaCopilot
                 _suppressBufferEvent = false;
             }
             return true;
+        }
+
+        // ---------------------- cache helpers ----------------------
+
+        /// <summary>
+        /// Tries to serve a completion from the cache synchronously on the UI thread.
+        /// Returns true (and renders immediately) on a cache hit; false on a miss.
+        /// </summary>
+        private bool TryShowFromCache()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (_view.IsClosed) return false;
+
+            OptionsPage opts = TryGetOptions();
+            if (opts == null || !opts.Enabled) return false;
+
+            CheckModelChange(opts);
+
+            ITextSnapshot snapshot = _view.TextSnapshot;
+            int caret = _view.Caret.Position.BufferPosition.Position;
+            int prefixStart = Math.Max(0, caret - Math.Max(0, opts.MaxPrefixChars));
+            int suffixEnd   = Math.Min(snapshot.Length, caret + Math.Max(0, opts.MaxSuffixChars));
+            string prefix = snapshot.GetText(prefixStart, caret - prefixStart);
+            string suffix = snapshot.GetText(caret, suffixEnd - caret);
+
+            string cached = _cache.TryGetExact(prefix, suffix)
+                         ?? _cache.TryGetByExtension(prefix, suffix);
+            if (cached == null) return false;
+
+            ITrackingPoint anchor = snapshot.CreateTrackingPoint(caret, PointTrackingMode.Negative);
+            ShowSuggestion(anchor, cached);
+            return true;
+        }
+
+        /// <summary>Clears the cache when the model has changed since the last request.</summary>
+        private void CheckModelChange(OptionsPage opts)
+        {
+            string model = opts?.Model ?? string.Empty;
+            if (_lastSeenModel != null && _lastSeenModel != model)
+                _cache.Clear();
+            _lastSeenModel = model;
         }
 
         // ---------------------- options access ----------------------
