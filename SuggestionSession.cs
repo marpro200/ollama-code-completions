@@ -134,6 +134,10 @@ namespace OllamaCopilot
             string prefix = snapshot.GetText(prefixStart, caret - prefixStart);
             string suffix = snapshot.GetText(caret, suffixEnd - caret);
 
+            ITextSnapshotLine caretLine = snapshot.GetLineFromPosition(caret);
+            string lineBeforeCursor = snapshot.GetText(caretLine.Start.Position, caret - caretLine.Start.Position);
+            string lineAfterCursor  = snapshot.GetText(caret, caretLine.End.Position - caret);
+
             // Don't send empty-prefix-and-empty-suffix requests (cursor in totally empty file).
             if (prefix.Length == 0 && suffix.Length == 0) return;
 
@@ -171,7 +175,9 @@ namespace OllamaCopilot
             }
 
             ct.ThrowIfCancellationRequested();
-            if (string.IsNullOrEmpty(completion)) return;
+            // Post-process on the background thread — pure CPU work, no UI access needed.
+            completion = CompletionPostProcessor.Clean(completion, lineBeforeCursor, lineAfterCursor, suffix);
+            if (completion == null) return;
 
             // Back to UI to render — re-validate that the world hasn't moved.
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(ct);
