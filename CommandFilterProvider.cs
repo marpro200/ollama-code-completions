@@ -15,6 +15,8 @@ namespace OllamaCopilot
     [Export(typeof(IVsTextViewCreationListener))]
     [ContentType("code")]
     [ContentType("text")]
+    [TextViewRole(PredefinedTextViewRoles.Document)]
+    [TextViewRole(PredefinedTextViewRoles.PrimaryDocument)]
     [TextViewRole(PredefinedTextViewRoles.Editable)]
     [TextViewRole(PredefinedTextViewRoles.Interactive)]
     internal sealed class CommandFilterProvider : IVsTextViewCreationListener
