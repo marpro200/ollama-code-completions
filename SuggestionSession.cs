@@ -1,15 +1,15 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Media;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Formatting;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
 
 namespace OllamaCopilot
 {
@@ -44,6 +44,7 @@ namespace OllamaCopilot
         private ITrackingPoint _anchor;      // tracks the cursor position the suggestion is for
         private bool _suppressBufferEvent;   // set while applying our own edits
         private string _lastSeenModel;       // for detecting model changes that require a cache clear
+        private int _extraLineCount;         // lines 2..N of the current suggestion (0 for single-line)
 
         private SuggestionSession(IWpfTextView view)
         {
@@ -144,7 +145,7 @@ namespace OllamaCopilot
 
             ITextSnapshotLine caretLine = snapshot.GetLineFromPosition(caret);
             string lineBeforeCursor = snapshot.GetText(caretLine.Start.Position, caret - caretLine.Start.Position);
-            string lineAfterCursor  = snapshot.GetText(caret, caretLine.End.Position - caret);
+            string lineAfterCursor = snapshot.GetText(caret, caretLine.End.Position - caret);
 
             // Don't send empty-prefix-and-empty-suffix requests (cursor in totally empty file).
             if (prefix.Length == 0 && suffix.Length == 0) return;
@@ -224,7 +225,22 @@ namespace OllamaCopilot
             _suggestion = text;
             _anchor = anchor;
             EnsureLayer();
-            RedrawGhost();
+
+            string[] lines = text.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None);
+            int newExtraLineCount = Math.Max(0, lines.Length - 1);
+
+            if (newExtraLineCount != _extraLineCount)
+            {
+                _extraLineCount = newExtraLineCount;
+                // Force the layout engine to re-query GetLineTransform for the anchor
+                // line so it allocates (or releases) the extra BottomSpace.  The
+                // resulting LayoutChanged event will call RedrawGhost.
+                InvalidateAnchorLineTransform();
+            }
+            else
+            {
+                RedrawGhost();
+            }
         }
 
         private void EnsureLayer()
@@ -236,7 +252,6 @@ namespace OllamaCopilot
         private void RedrawGhost()
         {
             if (_layer == null || _anchor == null || string.IsNullOrEmpty(_suggestion)) return;
-
             _layer.RemoveAllAdornments();
 
             int pos = _anchor.GetPosition(_view.TextSnapshot);
@@ -257,14 +272,24 @@ namespace OllamaCopilot
             // Use the editor's typeface so ghost text aligns with real code.
             var typeface = _view.FormattedLineSource.DefaultTextProperties.Typeface;
             double emSize = _view.FormattedLineSource.DefaultTextProperties.FontRenderingEmSize;
+
             var brush = new SolidColorBrush(Color.FromArgb(140, 150, 150, 150));
             brush.Freeze();
 
             string[] lines = _suggestion.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None);
             double firstLeft = line.GetCharacterBounds(anchorPoint).Left;
-            double restLeft = line.TextLeft;     // start of the editor's text area on this line
-            double top = line.TextTop;
-            double lineHeight = line.Height;
+            double restLeft = line.TextLeft;
+
+            // The ILineTransformSource has already allocated (lines.Length - 1) * TextHeight
+            // of extra BottomSpace below the anchor line's text.  Place line 0 at the normal
+            // text row and lines 1..N inside that reserved gap — never at real-code positions.
+            double rowHeight = line.TextHeight;
+            var positions = new (double Left, double Top, double Height)[lines.Length];
+            positions[0] = (firstLeft, line.TextTop, rowHeight);
+            for (int i = 1; i < lines.Length; i++)
+            {
+                positions[i] = (restLeft, line.TextBottom + (i - 1) * rowHeight, rowHeight);
+            }
 
             // Container Canvas so all lines move together if anything reflows.
             var canvas = new Canvas
@@ -273,6 +298,24 @@ namespace OllamaCopilot
                 Background = null,
             };
 
+            // blue bar to the left of the suggestion so we can be 100% sure
+            // the ghost text is ours and not from IntelliCode/Copilot/etc.
+            // Spans from the top of the first rendered line to the bottom of the last.
+            var markerBrush = new SolidColorBrush(Color.FromRgb(0, 138, 203));
+            markerBrush.Freeze();
+            double markerTop = positions[0].Top + 1;
+            double markerBottom = positions[positions.Length - 1].Top + positions[positions.Length - 1].Height - 1;
+            var marker = new System.Windows.Shapes.Rectangle
+            {
+                Width = 3,
+                Height = Math.Max(1, markerBottom - markerTop),
+                Fill = markerBrush,
+                IsHitTestVisible = false,
+            };
+            Canvas.SetLeft(marker, _view.ViewportLeft + 2);
+            Canvas.SetTop(marker, markerTop);
+            canvas.Children.Add(marker);
+
             for (int i = 0; i < lines.Length; i++)
             {
                 var tb = new TextBlock
@@ -280,15 +323,15 @@ namespace OllamaCopilot
                     Text = lines[i],
                     Foreground = brush,
                     FontFamily = typeface.FontFamily,
-                    FontStyle = typeface.Style,
+                    FontStyle = FontStyles.Italic,
                     FontWeight = typeface.Weight,
                     FontStretch = typeface.Stretch,
                     FontSize = emSize,
                     IsHitTestVisible = false,
                     TextWrapping = TextWrapping.NoWrap,
                 };
-                Canvas.SetLeft(tb, i == 0 ? firstLeft : restLeft);
-                Canvas.SetTop(tb, top + i * lineHeight);
+                Canvas.SetLeft(tb, positions[i].Left);
+                Canvas.SetTop(tb, positions[i].Top);
                 canvas.Children.Add(tb);
             }
 
@@ -302,10 +345,63 @@ namespace OllamaCopilot
 
         public void DismissSuggestion()
         {
+            int prevExtraLineCount = _extraLineCount;
+            ITrackingPoint prevAnchor = _anchor;
+
             _suggestion = null;
             _anchor = null;
+            _extraLineCount = 0;
             _layer?.RemoveAllAdornments();
+
+            // Release the reserved vertical space so the layout engine stops pushing
+            // real lines down below the old anchor.
+            if (prevExtraLineCount > 0 && prevAnchor != null)
+                InvalidateAnchorLineTransformAt(prevAnchor);
         }
+
+        // ---------------------- line transform support ----------------------
+
+        /// <summary>
+        /// Called by <see cref="GhostTextLineTransformSource"/> for every line during
+        /// layout.  Returns the number of extra suggestion lines that need vertical
+        /// space below <paramref name="line"/>, or 0 if this line is not the anchor.
+        /// </summary>
+        internal int GetExtraLinesFor(ITextViewLine line)
+        {
+            if (_extraLineCount <= 0 || _anchor == null) return 0;
+            try
+            {
+                int anchorPos = _anchor.GetPosition(_view.TextSnapshot);
+                if (line.ContainsBufferPosition(new SnapshotPoint(_view.TextSnapshot, anchorPos)))
+                    return _extraLineCount;
+            }
+            catch { }
+            return 0;
+        }
+
+        private void InvalidateAnchorLineTransform()
+            => InvalidateAnchorLineTransformAt(_anchor);
+
+        private void InvalidateAnchorLineTransformAt(ITrackingPoint anchor)
+        {
+            if (anchor == null) return;
+            try
+            {
+                int pos = anchor.GetPosition(_view.TextSnapshot);
+                var anchorPoint = new SnapshotPoint(_view.TextSnapshot, pos);
+                ITextViewLine anchorLine = _view.GetTextViewLineContainingBufferPosition(anchorPoint);
+                if (anchorLine == null) return;
+                // Keep the line at its current viewport-relative y position; the layout
+                // engine will re-query GetLineTransform and adjust the bottom space.
+                _view.DisplayTextLineContainingBufferPosition(
+                    anchorPoint,
+                    anchorLine.Top - _view.ViewportTop,
+                    ViewRelativePosition.Top);
+            }
+            catch { }
+        }
+
+        // ---------------------- accept ----------------------
 
         /// <summary>
         /// Inserts the ghosted text into the buffer at the anchor and moves
@@ -362,7 +458,7 @@ namespace OllamaCopilot
             ITextSnapshot snapshot = _view.TextSnapshot;
             int caret = _view.Caret.Position.BufferPosition.Position;
             int prefixStart = Math.Max(0, caret - Math.Max(0, opts.MaxPrefixChars));
-            int suffixEnd   = Math.Min(snapshot.Length, caret + Math.Max(0, opts.MaxSuffixChars));
+            int suffixEnd = Math.Min(snapshot.Length, caret + Math.Max(0, opts.MaxSuffixChars));
             string prefix = snapshot.GetText(prefixStart, caret - prefixStart);
             string suffix = snapshot.GetText(caret, suffixEnd - caret);
 
