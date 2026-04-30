@@ -1,0 +1,47 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    env:
+      Configuration: Release
+      DeployExtension: false # don't try to launch VS experimental in CI
+      Solution: OllamaCodeCompletions.sln
+      VsixOutputDir: bin\Release\net472
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: NuGet restore
+        run: msbuild ${{ env.Solution }} /t:Restore /p:Configuration=${{ env.Configuration }}
+
+      - name: Build
+        run: msbuild ${{ env.Solution }} /p:Configuration=${{ env.Configuration }} /p:DeployExtension=false
+
+      - name: Verify VSIX was produced
+        shell: pwsh
+        run: |
+          $vsix = Get-ChildItem -Path "${{ env.VsixOutputDir }}" -Filter "*.vsix" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $vsix) {
+            Write-Error "No .vsix found under ${{ env.VsixOutputDir }} — build did not produce the expected artifact."
+            exit 1
+          }
+          Write-Host "Built: $($vsix.FullName) ($([math]::Round($vsix.Length / 1KB, 1)) KB)"
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OllamaCodeCompletions-vsix
+          path: ${{ env.VsixOutputDir }}\*.vsix
+          retention-days: 30

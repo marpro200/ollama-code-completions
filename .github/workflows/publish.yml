@@ -1,0 +1,55 @@
+name: Publish Extension
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write # needed for softprops/action-gh-release
+
+jobs:
+  publish:
+    runs-on: windows-latest
+
+    env:
+      Configuration: Release
+      DeployExtension: false
+      Solution: OllamaCodeCompletions.sln
+      VsixOutputDir: bin\Release\net472
+      PublishManifest: vs-publish.json
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: NuGet restore
+        run: msbuild ${{ env.Solution }} /t:Restore /p:Configuration=${{ env.Configuration }}
+
+      - name: Build
+        run: msbuild ${{ env.Solution }} /p:Configuration=${{ env.Configuration }} /p:DeployExtension=false
+
+      - name: Locate VSIX
+        id: vsix
+        shell: pwsh
+        run: |
+          $vsix = Get-ChildItem -Path "${{ env.VsixOutputDir }}" -Filter "*.vsix" | Select-Object -First 1
+          if (-not $vsix) { Write-Error "No VSIX produced"; exit 1 }
+          echo "path=$($vsix.FullName)" >> $env:GITHUB_OUTPUT
+          Write-Host "Found: $($vsix.FullName)"
+
+      - name: Publish to Visual Studio Marketplace
+        uses: cezarypiatek/VsixPublisherAction@1.2
+        with:
+          extension-file: ${{ steps.vsix.outputs.path }}
+          publish-manifest-file: ${{ env.PublishManifest }}
+          personal-access-code: ${{ secrets.VS_PUBLISHER_ACCESS_TOKEN }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.vsix.outputs.path }}
+          generate_release_notes: true
