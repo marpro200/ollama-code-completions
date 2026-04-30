@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -84,15 +85,25 @@ namespace OllamaCodeCompletions
                     http.Headers.Authorization = new AuthenticationHeaderValue("Basic", b64);
                 }
 
+                Logger.Log("Http", $"POST {url} model={req.Model} predict={req.MaxPredict} timeout={req.TimeoutSeconds}s");
+                var sw = Stopwatch.StartNew();
                 try
                 {
                     using (var resp = await s_http.SendAsync(http, HttpCompletionOption.ResponseContentRead, linked.Token).ConfigureAwait(false))
                     {
+                        sw.Stop();
+                        Logger.Log("Http", $"{(int)resp.StatusCode} in {sw.ElapsedMilliseconds}ms");
+
                         if (!resp.IsSuccessStatusCode) return null;
 
                         string body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
                         var parsed = JObject.Parse(body);
-                        string completion = (string)parsed["response"] ?? string.Empty;
+                        string completion = (string)parsed["response"];
+                        if (completion == null)
+                        {
+                            Logger.Log("Http", "response field missing or non-string");
+                            completion = string.Empty;
+                        }
                         return PostProcess(completion);
                     }
                 }
@@ -101,10 +112,20 @@ namespace OllamaCodeCompletions
                     // User kept typing — propagate so the session can stay quiet.
                     throw;
                 }
-                catch
+                catch (OperationCanceledException)
                 {
-                    // Network error, bad URL, auth failure, JSON parse failure — all
-                    // swallowed: the IDE must never crash because Ollama is unreachable.
+                    // Linked token cancelled by timeoutCts — request exceeded TimeoutSeconds.
+                    Logger.Log("Http", $"timeout after {req.TimeoutSeconds}s");
+                    return null;
+                }
+                catch (HttpRequestException ex)
+                {
+                    Logger.LogException("Http", ex);
+                    return null;
+                }
+                catch (JsonReaderException ex)
+                {
+                    Logger.LogException("Http", ex);
                     return null;
                 }
             }

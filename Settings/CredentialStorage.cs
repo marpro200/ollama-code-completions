@@ -35,7 +35,12 @@ namespace OllamaCodeCompletions
             if (!CredRead(TargetName, CRED_TYPE.GENERIC, 0, out IntPtr credPtr))
             {
                 int err = Marshal.GetLastWin32Error();
-                if (err == ERROR_NOT_FOUND) return (null, null);
+                if (err == ERROR_NOT_FOUND)
+                {
+                    Logger.Log("Credential", $"not found ({err})");
+                    return (null, null);
+                }
+                Logger.Log("Credential", $"CredRead failed (Win32 {err})");
                 return (null, null); // best-effort: never throw out of read
             }
 

@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using Microsoft.VisualStudio.Shell;
+using CancelEventArgs = System.ComponentModel.CancelEventArgs;
 
 namespace OllamaCodeCompletions
 {
@@ -96,5 +97,52 @@ namespace OllamaCodeCompletions
         [DisplayName("Request timeout (seconds)")]
         [Description("HTTP timeout for each Ollama request.")]
         public int TimeoutSeconds { get; set; } = 30;
+
+        // --- Diagnostics ---
+        // Backing fields hold the persisted state; setters mirror to Logger so it
+        // never has to reach into Options on the hot path. OnActivate / OnApply
+        // re-push as belt-and-braces in case persistence ever bypasses the setter.
+
+        private bool _logToFile = false;
+        [Category(CategoryBehavior)]
+        [DisplayName("Log to file")]
+        [Description("Write diagnostic events to %TEMP%\\OllamaCodeCompletions.log. Useful for bug reports.")]
+        public bool LogToFile
+        {
+            get => _logToFile;
+            set
+            {
+                _logToFile = value;
+                Logger.FileEnabled = value;
+            }
+        }
+
+        private bool _logToOutputPane = false;
+        [Category(CategoryBehavior)]
+        [DisplayName("Log to Output pane")]
+        [Description("Show diagnostic events in a dedicated 'Ollama Code Completions' pane in the Output window. Useful for live debugging.")]
+        public bool LogToOutputPane
+        {
+            get => _logToOutputPane;
+            set
+            {
+                _logToOutputPane = value;
+                Logger.OutputPaneEnabled = value;
+            }
+        }
+
+        protected override void OnActivate(CancelEventArgs e)
+        {
+            base.OnActivate(e);
+            Logger.FileEnabled = _logToFile;
+            Logger.OutputPaneEnabled = _logToOutputPane;
+        }
+
+        protected override void OnApply(PageApplyEventArgs e)
+        {
+            Logger.FileEnabled = _logToFile;
+            Logger.OutputPaneEnabled = _logToOutputPane;
+            base.OnApply(e);
+        }
     }
 }

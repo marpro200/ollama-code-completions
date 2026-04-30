@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.OLE.Interop;
 using Microsoft.VisualStudio.Text.Editor;
@@ -42,11 +43,16 @@ namespace OllamaCodeCompletions
                     var id = (VSConstants.VSStd2KCmdID)nCmdID;
                     if (id == VSConstants.VSStd2KCmdID.TAB || id == VSConstants.VSStd2KCmdID.BACKTAB)
                     {
-                        if (session.AcceptSuggestion()) return VSConstants.S_OK;
+                        if (session.AcceptSuggestion())
+                        {
+                            Logger.Log("Command", "TAB accepted");
+                            return VSConstants.S_OK;
+                        }
                     }
                     else if (id == VSConstants.VSStd2KCmdID.CANCEL)
                     {
                         session.DismissSuggestion();
+                        Logger.Log("Command", "ESC dismissed");
                         return VSConstants.S_OK;
                     }
                     else if (id == VSConstants.VSStd2KCmdID.RETURN)
@@ -54,13 +60,22 @@ namespace OllamaCodeCompletions
                         // Pressing Enter while a ghost is showing should drop it
                         // and let the editor handle the newline normally.
                         session.DismissSuggestion();
+                        Logger.Log("Command", "RETURN dismissed");
                         // fall through
                     }
                 }
             }
-            catch
+            catch (InvalidOperationException ex)
             {
-                // Never let our filter break command routing.
+                Logger.LogException("Command", ex);
+            }
+            catch (ArgumentException ex)
+            {
+                Logger.LogException("Command", ex);
+            }
+            catch (COMException ex)
+            {
+                Logger.LogException("Command", ex);
             }
 
             return Next?.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut)

@@ -40,8 +40,15 @@ namespace OllamaCodeCompletions
                 string ext          = Path.GetExtension(fullPath).TrimStart('.').ToLowerInvariant();
                 return FormatHeader(displayPath, GetCommentStart(ext));
             }
-            catch
+            catch (System.Runtime.InteropServices.COMException ex)
             {
+                // DTE / property-bag access can race with solution close.
+                Logger.LogException("FileHeader", ex);
+                return null;
+            }
+            catch (System.InvalidOperationException ex)
+            {
+                Logger.LogException("FileHeader", ex);
                 return null;
             }
         }
@@ -58,7 +65,14 @@ namespace OllamaCodeCompletions
                         return Path.GetDirectoryName(slnFull);
                 }
             }
-            catch { }
+            catch (System.Runtime.InteropServices.COMException ex)
+            {
+                Logger.LogException("FileHeader", ex);
+            }
+            catch (System.InvalidOperationException ex)
+            {
+                Logger.LogException("FileHeader", ex);
+            }
             return null;
         }
 #endif

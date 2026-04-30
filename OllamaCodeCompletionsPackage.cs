@@ -14,7 +14,7 @@ namespace OllamaCodeCompletions
     ///    (the suggestion session, command filter) by the time the user starts typing.
     /// </summary>
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
-    [InstalledProductRegistration("Ollama Code Completions", "Inline ghost-text autocomplete via Ollama.", "1.0.2")]
+    [InstalledProductRegistration("Ollama Code Completions", "Inline ghost-text autocomplete via Ollama.", "1.0.3")]
     [Guid(PackageGuidString)]
     [ProvideOptionPage(typeof(OptionsPage), "Ollama Code Completions", "General", 0, 0, true)]
     [ProvideAutoLoad(VSConstants.UICONTEXT.NoSolution_string, PackageAutoLoadFlags.BackgroundLoad)]
@@ -30,6 +30,11 @@ namespace OllamaCodeCompletions
             await base.InitializeAsync(cancellationToken, progress);
             await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
             Instance = this;
+
+            // Touch the OptionsPage early so LoadSettingsFromStorage runs and the
+            // Logger.FileEnabled / OutputPaneEnabled flags are populated before any
+            // [Attach] events fire on the very first opened text view.
+            _ = GetDialogPage(typeof(OptionsPage));
         }
 
         /// <summary>

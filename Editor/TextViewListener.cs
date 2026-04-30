@@ -32,11 +32,17 @@ namespace OllamaCodeCompletions
 
         public void TextViewCreated(IWpfTextView textView)
         {
+            string contentType = textView.TextBuffer.ContentType?.TypeName ?? "(unknown)";
+            string roles = string.Join(",", textView.Roles);
+
             if (!textView.TextBuffer.Properties.TryGetProperty(
-                    typeof(ITextDocument), out ITextDocument _))
+                    typeof(ITextDocument), out ITextDocument doc))
             {
+                Logger.Log("Attach", $"skip (no ITextDocument) contentType={contentType} roles=[{roles}]");
                 return;
             }
+
+            Logger.Log("Attach", $"contentType={contentType} roles=[{roles}] file={doc.FilePath ?? "(unsaved)"}");
 
             // Lazy-create the per-view session so it's wired to text/caret events.
             SuggestionSession.GetOrCreate(textView);

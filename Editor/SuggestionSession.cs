@@ -5,6 +5,7 @@ using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Formatting;
 using System;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -120,6 +121,11 @@ namespace OllamaCodeCompletions
             }
             catch (Exception ex)
             {
+                // Top-level boundary for fire-and-forget. Without a final catch, any
+                // unexpected exception escaping RequestSuggestionAsync goes silently
+                // to TaskScheduler.UnobservedTaskException — neither logged nor surfaced.
+                // Log first, then surface in the status bar.
+                Logger.LogException("Error", ex);
                 await StatusBar.SetAsync("Ollama Code Completions: " + ex.Message).ConfigureAwait(false);
             }
         }
@@ -157,16 +163,26 @@ namespace OllamaCodeCompletions
             if (!string.IsNullOrEmpty(fileHeader))
                 prefix = fileHeader + prefix;
 
+            Logger.Log("Request", $"caret={caret} prefix={prefix.Length}ch suffix={suffix.Length}ch model={opts.Model}");
+
             // Cache check — we may have arrived here via the debounce timer after the
             // synchronous check in OnTextBufferChanged already missed; check again in case
             // something was stored in the interim.
-            string cachedCompletion = _cache.TryGetExact(prefix, suffix)
-                                   ?? _cache.TryGetByExtension(prefix, suffix);
-            if (cachedCompletion != null)
+            string cachedExact = _cache.TryGetExact(prefix, suffix);
+            if (cachedExact != null)
             {
-                ShowSuggestion(anchor, cachedCompletion);
+                Logger.Log("Cache", "HIT (exact)");
+                ShowSuggestion(anchor, cachedExact);
                 return;
             }
+            string cachedExt = _cache.TryGetByExtension(prefix, suffix);
+            if (cachedExt != null)
+            {
+                Logger.Log("Cache", "HIT (extension)");
+                ShowSuggestion(anchor, cachedExt);
+                return;
+            }
+            Logger.Log("Cache", "MISS");
 
             string username = null, password = null;
             if (opts.UseAuthentication)
@@ -201,12 +217,15 @@ namespace OllamaCodeCompletions
 
             ct.ThrowIfCancellationRequested();
             // Post-process on the background thread — pure CPU work, no UI access needed.
+            int rawLen = completion?.Length ?? 0;
             completion = CompletionPostProcessor.Clean(completion, lineBeforeCursor, lineAfterCursor, suffix);
+            Logger.Log("PostProcess", $"in={rawLen}ch out={completion?.Length ?? 0}ch");
             if (completion == null) return;
 
             // Store the post-processed completion before switching back to the UI thread.
             // The cache is thread-safe so calling Store here is fine.
             _cache.Store(prefix, suffix, completion);
+            Logger.Log("Cache", $"STORE (length={completion.Length}ch)");
 
             // Back to UI to render — re-validate that the world hasn't moved.
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(ct);
@@ -229,6 +248,8 @@ namespace OllamaCodeCompletions
             string[] lines = text.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None);
             int newExtraLineCount = Math.Max(0, lines.Length - 1);
 
+            Logger.Log("Render", $"length={text.Length}ch lines={lines.Length} gap={newExtraLineCount}");
+
             if (newExtraLineCount != _extraLineCount)
             {
                 _extraLineCount = newExtraLineCount;
@@ -250,10 +271,12 @@ namespace OllamaCodeCompletions
             {
                 _layer = _view.GetAdornmentLayer(TextViewListener.GhostTextLayerName);
             }
-            catch
+            catch (Exception ex)
             {
                 // GetAdornmentLayer throws if no matching definition exists for this view.
-                // Leave _layer null; RedrawGhost guards against it.
+                // Bare catch is justified: this is the must-not-throw boundary documented
+                // in the 1.0.2 hotfix. Leave _layer null; RedrawGhost guards against it.
+                Logger.LogException("Render", ex);
             }
         }
 
@@ -344,10 +367,12 @@ namespace OllamaCodeCompletions
                     adornment: canvas,
                     removedCallback: null);
             }
-            catch
+            catch (Exception ex)
             {
-                // Called from OnLayoutChanged on the UI thread — must never propagate
-                // an exception into the editor's layout pass.
+                // Bare catch is justified: this is the must-not-throw boundary documented
+                // in the 1.0.2 hotfix. Called from OnLayoutChanged on the UI thread, an
+                // escaping exception would propagate into the editor's layout pass.
+                Logger.LogException("Render", ex);
             }
         }
 
@@ -383,7 +408,15 @@ namespace OllamaCodeCompletions
                 if (line.ContainsBufferPosition(new SnapshotPoint(_view.TextSnapshot, anchorPos)))
                     return _extraLineCount;
             }
-            catch { }
+            catch (ArgumentException ex)
+            {
+                // Tracking-point GetPosition can throw if the snapshot is mid-replace.
+                Logger.LogException("Render", ex);
+            }
+            catch (InvalidOperationException ex)
+            {
+                Logger.LogException("Render", ex);
+            }
             return 0;
         }
 
@@ -406,7 +439,14 @@ namespace OllamaCodeCompletions
                     anchorLine.Top - _view.ViewportTop,
                     ViewRelativePosition.Top);
             }
-            catch { }
+            catch (ArgumentException ex)
+            {
+                Logger.LogException("Render", ex);
+            }
+            catch (InvalidOperationException ex)
+            {
+                Logger.LogException("Render", ex);
+            }
         }
 
         // ---------------------- accept ----------------------
@@ -475,10 +515,17 @@ namespace OllamaCodeCompletions
             if (!string.IsNullOrEmpty(fileHeader))
                 prefix = fileHeader + prefix;
 
-            string cached = _cache.TryGetExact(prefix, suffix)
-                         ?? _cache.TryGetByExtension(prefix, suffix);
+            string cachedExact = _cache.TryGetExact(prefix, suffix);
+            string cached = cachedExact;
+            string hitKind = "exact";
+            if (cached == null)
+            {
+                cached = _cache.TryGetByExtension(prefix, suffix);
+                hitKind = "extension";
+            }
             if (cached == null) return false;
 
+            Logger.Log("Cache", $"HIT ({hitKind}) [sync]");
             ITrackingPoint anchor = snapshot.CreateTrackingPoint(caret, PointTrackingMode.Negative);
             ShowSuggestion(anchor, cached);
             return true;
@@ -489,7 +536,11 @@ namespace OllamaCodeCompletions
         {
             string model = opts?.Model ?? string.Empty;
             if (_lastSeenModel != null && _lastSeenModel != model)
+            {
                 _cache.Clear();
+                Logger.Log("Cache", $"CLEAR (model changed: {_lastSeenModel} -> {model})");
+                Logger.Log("Options", $"model changed: {_lastSeenModel} -> {model}");
+            }
             _lastSeenModel = model;
         }
 
@@ -511,8 +562,14 @@ namespace OllamaCodeCompletions
                 }
                 return OllamaCodeCompletionsPackage.Instance?.Options;
             }
-            catch
+            catch (COMException ex)
             {
+                Logger.LogException("Options", ex);
+                return null;
+            }
+            catch (InvalidOperationException ex)
+            {
+                Logger.LogException("Options", ex);
                 return null;
             }
         }

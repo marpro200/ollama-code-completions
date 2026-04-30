@@ -199,6 +199,7 @@ OllamaCopilot/
 │   └── CredentialStorage.cs           Windows Credential Manager P/Invoke
 │
 ├── Infrastructure/
+│   ├── Logger.cs                      Diagnostic logger (file + Output pane sinks)
 │   ├── StatusBar.cs                   Status bar helper
 │   └── FileHeaderBuilder.cs           Builds the "// File: …" prompt header
 │
