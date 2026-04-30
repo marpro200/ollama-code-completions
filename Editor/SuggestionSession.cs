@@ -245,102 +245,110 @@ namespace OllamaCodeCompletions
 
         private void EnsureLayer()
         {
-            if (_layer == null)
+            if (_layer != null) return;
+            try
+            {
                 _layer = _view.GetAdornmentLayer(TextViewListener.GhostTextLayerName);
+            }
+            catch
+            {
+                // GetAdornmentLayer throws if no matching definition exists for this view.
+                // Leave _layer null; RedrawGhost guards against it.
+            }
         }
 
         private void RedrawGhost()
         {
             if (_layer == null || _anchor == null || string.IsNullOrEmpty(_suggestion)) return;
-            _layer.RemoveAllAdornments();
-
-            int pos = _anchor.GetPosition(_view.TextSnapshot);
-            if (pos > _view.TextSnapshot.Length) return;
-            var anchorPoint = new SnapshotPoint(_view.TextSnapshot, pos);
-
-            ITextViewLine line;
             try
             {
-                line = _view.GetTextViewLineContainingBufferPosition(anchorPoint);
+                _layer.RemoveAllAdornments();
+
+                int pos = _anchor.GetPosition(_view.TextSnapshot);
+                if (pos > _view.TextSnapshot.Length) return;
+                var anchorPoint = new SnapshotPoint(_view.TextSnapshot, pos);
+
+                ITextViewLine line = _view.GetTextViewLineContainingBufferPosition(anchorPoint);
+                if (line == null) return;
+
+                // Use the editor's typeface so ghost text aligns with real code.
+                var typeface = _view.FormattedLineSource.DefaultTextProperties.Typeface;
+                double emSize = _view.FormattedLineSource.DefaultTextProperties.FontRenderingEmSize;
+
+                var brush = new SolidColorBrush(Color.FromArgb(140, 150, 150, 150));
+                brush.Freeze();
+
+                string[] lines = _suggestion.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None);
+                double firstLeft = line.GetCharacterBounds(anchorPoint).Left;
+                double restLeft = line.TextLeft;
+
+                // The ILineTransformSource has already allocated (lines.Length - 1) * TextHeight
+                // of extra BottomSpace below the anchor line's text.  Place line 0 at the normal
+                // text row and lines 1..N inside that reserved gap — never at real-code positions.
+                double rowHeight = line.TextHeight;
+                var positions = new (double Left, double Top, double Height)[lines.Length];
+                positions[0] = (firstLeft, line.TextTop, rowHeight);
+                for (int i = 1; i < lines.Length; i++)
+                {
+                    positions[i] = (restLeft, line.TextBottom + (i - 1) * rowHeight, rowHeight);
+                }
+
+                // Container Canvas so all lines move together if anything reflows.
+                var canvas = new Canvas
+                {
+                    IsHitTestVisible = false,
+                    Background = null,
+                };
+
+                // blue bar to the left of the suggestion so we can be 100% sure
+                // the ghost text is ours and not from IntelliCode/Copilot/etc.
+                // Spans from the top of the first rendered line to the bottom of the last.
+                var markerBrush = new SolidColorBrush(Color.FromRgb(0, 138, 203));
+                markerBrush.Freeze();
+                double markerTop = positions[0].Top + 1;
+                double markerBottom = positions[positions.Length - 1].Top + positions[positions.Length - 1].Height - 1;
+                var marker = new System.Windows.Shapes.Rectangle
+                {
+                    Width = 3,
+                    Height = Math.Max(1, markerBottom - markerTop),
+                    Fill = markerBrush,
+                    IsHitTestVisible = false,
+                };
+                Canvas.SetLeft(marker, _view.ViewportLeft + 2);
+                Canvas.SetTop(marker, markerTop);
+                canvas.Children.Add(marker);
+
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    var tb = new TextBlock
+                    {
+                        Text = lines[i],
+                        Foreground = brush,
+                        FontFamily = typeface.FontFamily,
+                        FontStyle = FontStyles.Italic,
+                        FontWeight = typeface.Weight,
+                        FontStretch = typeface.Stretch,
+                        FontSize = emSize,
+                        IsHitTestVisible = false,
+                        TextWrapping = TextWrapping.NoWrap,
+                    };
+                    Canvas.SetLeft(tb, positions[i].Left);
+                    Canvas.SetTop(tb, positions[i].Top);
+                    canvas.Children.Add(tb);
+                }
+
+                _layer.AddAdornment(
+                    AdornmentPositioningBehavior.TextRelative,
+                    new SnapshotSpan(anchorPoint, 0),
+                    tag: null,
+                    adornment: canvas,
+                    removedCallback: null);
             }
             catch
             {
-                return;
+                // Called from OnLayoutChanged on the UI thread — must never propagate
+                // an exception into the editor's layout pass.
             }
-            if (line == null) return;
-
-            // Use the editor's typeface so ghost text aligns with real code.
-            var typeface = _view.FormattedLineSource.DefaultTextProperties.Typeface;
-            double emSize = _view.FormattedLineSource.DefaultTextProperties.FontRenderingEmSize;
-
-            var brush = new SolidColorBrush(Color.FromArgb(140, 150, 150, 150));
-            brush.Freeze();
-
-            string[] lines = _suggestion.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None);
-            double firstLeft = line.GetCharacterBounds(anchorPoint).Left;
-            double restLeft = line.TextLeft;
-
-            // The ILineTransformSource has already allocated (lines.Length - 1) * TextHeight
-            // of extra BottomSpace below the anchor line's text.  Place line 0 at the normal
-            // text row and lines 1..N inside that reserved gap — never at real-code positions.
-            double rowHeight = line.TextHeight;
-            var positions = new (double Left, double Top, double Height)[lines.Length];
-            positions[0] = (firstLeft, line.TextTop, rowHeight);
-            for (int i = 1; i < lines.Length; i++)
-            {
-                positions[i] = (restLeft, line.TextBottom + (i - 1) * rowHeight, rowHeight);
-            }
-
-            // Container Canvas so all lines move together if anything reflows.
-            var canvas = new Canvas
-            {
-                IsHitTestVisible = false,
-                Background = null,
-            };
-
-            // blue bar to the left of the suggestion so we can be 100% sure
-            // the ghost text is ours and not from IntelliCode/Copilot/etc.
-            // Spans from the top of the first rendered line to the bottom of the last.
-            var markerBrush = new SolidColorBrush(Color.FromRgb(0, 138, 203));
-            markerBrush.Freeze();
-            double markerTop = positions[0].Top + 1;
-            double markerBottom = positions[positions.Length - 1].Top + positions[positions.Length - 1].Height - 1;
-            var marker = new System.Windows.Shapes.Rectangle
-            {
-                Width = 3,
-                Height = Math.Max(1, markerBottom - markerTop),
-                Fill = markerBrush,
-                IsHitTestVisible = false,
-            };
-            Canvas.SetLeft(marker, _view.ViewportLeft + 2);
-            Canvas.SetTop(marker, markerTop);
-            canvas.Children.Add(marker);
-
-            for (int i = 0; i < lines.Length; i++)
-            {
-                var tb = new TextBlock
-                {
-                    Text = lines[i],
-                    Foreground = brush,
-                    FontFamily = typeface.FontFamily,
-                    FontStyle = FontStyles.Italic,
-                    FontWeight = typeface.Weight,
-                    FontStretch = typeface.Stretch,
-                    FontSize = emSize,
-                    IsHitTestVisible = false,
-                    TextWrapping = TextWrapping.NoWrap,
-                };
-                Canvas.SetLeft(tb, positions[i].Left);
-                Canvas.SetTop(tb, positions[i].Top);
-                canvas.Children.Add(tb);
-            }
-
-            _layer.AddAdornment(
-                AdornmentPositioningBehavior.TextRelative,
-                new SnapshotSpan(anchorPoint, 0),
-                tag: null,
-                adornment: canvas,
-                removedCallback: null);
         }
 
         public void DismissSuggestion()

@@ -1,4 +1,5 @@
 using System.ComponentModel.Composition;
+using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Formatting;
 using Microsoft.VisualStudio.Utilities;
@@ -8,11 +9,20 @@ namespace OllamaCodeCompletions
     [Export(typeof(ILineTransformSourceProvider))]
     [ContentType("code")]
     [ContentType("text")]
+    [TextViewRole(PredefinedTextViewRoles.Document)]
+    [TextViewRole(PredefinedTextViewRoles.PrimaryDocument)]
     [TextViewRole(PredefinedTextViewRoles.Editable)]
+    [TextViewRole(PredefinedTextViewRoles.Interactive)]
     internal sealed class GhostTextLineTransformSourceProvider : ILineTransformSourceProvider
     {
         public ILineTransformSource Create(IWpfTextView textView)
         {
+            if (!textView.TextBuffer.Properties.TryGetProperty(
+                    typeof(ITextDocument), out ITextDocument _))
+            {
+                return null;
+            }
+
             return new GhostTextLineTransformSource(SuggestionSession.GetOrCreate(textView));
         }
     }
