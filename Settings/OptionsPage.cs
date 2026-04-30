@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
+using System.Windows;
 using Microsoft.VisualStudio.Shell;
 using CancelEventArgs = System.ComponentModel.CancelEventArgs;
 
@@ -8,14 +10,20 @@ namespace OllamaCodeCompletions
     /// <summary>
     /// Tools → Options → Ollama Code Completions → General.
     ///
-    /// Most properties are auto-persisted by VS's <see cref="DialogPage"/>.
-    /// <see cref="Username"/> and <see cref="Password"/> are NOT persisted that way —
-    /// their getters/setters round-trip through <see cref="CredentialStorage"/> so
-    /// secrets never end up in the user's settings XML.
+    /// Backed by a custom WPF UI (<see cref="OptionsPageControl"/>). All persisted
+    /// properties keep their original names, defaults, and attributes — VS persists
+    /// them by reflection regardless of how they're rendered, and the [Category] /
+    /// [DisplayName] / [Description] metadata is still honored by Tools → Import
+    /// and Export Settings.
+    ///
+    /// <see cref="Username"/> and <see cref="Password"/> still round-trip through
+    /// <see cref="CredentialStorage"/>; the password specifically is loaded into
+    /// the unbound <see cref="OptionsPageControl.PasswordBox"/> on activate and
+    /// saved back on apply (see <see cref="OptionsPageControl"/>).
     /// </summary>
     [Guid("a7e2f8b3-9c14-4f2d-8e6b-1f5d3c9a8e72")]
     [ComVisible(true)]
-    public class OptionsPage : DialogPage
+    public class OptionsPage : UIElementDialogPage
     {
         private const string CategoryConnection = "Connection";
         private const string CategoryAuthentication = "Authentication";
@@ -57,7 +65,7 @@ namespace OllamaCodeCompletions
         public string Password
         {
             // Show a sentinel rather than the real password so it never leaves the credential store
-            // (the property grid copies the value, and could log it).
+            // (Import/Export Settings reads property values; we don't want the cleartext leaked).
             get => string.IsNullOrEmpty(CredentialStorage.GetPassword()) ? string.Empty : PasswordSentinel;
             set
             {
@@ -131,17 +139,53 @@ namespace OllamaCodeCompletions
             }
         }
 
+        // --- Runtime-only state for the WPF UI ---
+        // Populated by the "Refresh" button. Hidden from the property grid AND
+        // from Import/Export Settings so a transient list of model names doesn't
+        // get persisted to user settings XML.
+
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public List<string> AvailableModels { get; set; } = new List<string>();
+
+        // --- WPF host plumbing ---
+
+        private OptionsPageControl _control;
+
+        protected override UIElement Child
+        {
+            get
+            {
+                if (_control == null) _control = new OptionsPageControl();
+                return _control;
+            }
+        }
+
         protected override void OnActivate(CancelEventArgs e)
         {
             base.OnActivate(e);
             Logger.FileEnabled = _logToFile;
             Logger.OutputPaneEnabled = _logToOutputPane;
+
+            // Bind the WPF control's DataContext to this page so XAML bindings
+            // resolve, then explicitly re-load fields that bindings can't reach
+            // (the password). Re-loading every activation is necessary because
+            // re-opening the dialog reuses the same control instance, so a
+            // DataContextChanged handler wouldn't fire.
+            var c = (OptionsPageControl)Child;
+            c.DataContext = this;
+            c.LoadFromPage();
         }
 
         protected override void OnApply(PageApplyEventArgs e)
         {
             Logger.FileEnabled = _logToFile;
             Logger.OutputPaneEnabled = _logToOutputPane;
+
+            // Persist the unbound PasswordBox via CredentialStorage. Username
+            // already flows through normal data binding + its own setter.
+            ((OptionsPageControl)Child).SaveToPage();
+
             base.OnApply(e);
         }
     }

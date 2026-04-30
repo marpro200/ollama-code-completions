@@ -11,6 +11,11 @@
     <LangVersion>9.0</LangVersion>
     <UseCodebase>true</UseCodebase>
 
+    <!-- WPF UserControl support for the custom OptionsPage UI.
+         UseWPF=true imports the WPF compilation targets and auto-globs *.xaml
+         files as <Page> items, generating .g.cs partial classes for InitializeComponent. -->
+    <UseWPF>true</UseWPF>
+
     <!-- VSIX -->
     <GeneratePkgDefFile>true</GeneratePkgDefFile>
     <CreateVsixContainer>true</CreateVsixContainer>

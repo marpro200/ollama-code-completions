@@ -195,7 +195,9 @@ OllamaCopilot/
 │   └── OllamaClient.cs                /api/generate + FIM + Basic auth
 │
 ├── Settings/
-│   ├── OptionsPage.cs                 Tools → Options entries
+│   ├── OptionsPage.cs                 UIElementDialogPage (persisted properties)
+│   ├── OptionsPageControl.xaml        WPF Options UI (custom layout)
+│   ├── OptionsPageControl.xaml.cs     Refresh / Test connection / Open log handlers
 │   └── CredentialStorage.cs           Windows Credential Manager P/Invoke
 │
 ├── Infrastructure/

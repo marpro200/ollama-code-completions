@@ -1,0 +1,132 @@
+<UserControl x:Class="OllamaCodeCompletions.OptionsPageControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignWidth="540" d:DesignHeight="640">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="8">
+
+            <!-- Connection -->
+            <GroupBox Header="Connection" Margin="0,0,0,8" Padding="8">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="120"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Label Grid.Row="0" Grid.Column="0" Content="Server URL:" VerticalAlignment="Center"/>
+                    <TextBox x:Name="ServerUrlTextBox" Grid.Row="0" Grid.Column="1" Margin="0,4"
+                             Text="{Binding ServerUrl, UpdateSourceTrigger=PropertyChanged}"/>
+
+                    <Label Grid.Row="1" Grid.Column="0" Content="Model:" VerticalAlignment="Center"/>
+                    <DockPanel Grid.Row="1" Grid.Column="1" Margin="0,4" LastChildFill="True">
+                        <Button x:Name="TestButton" DockPanel.Dock="Right" Content="Test connection"
+                                Padding="8,2" Margin="4,0,0,0" Click="OnTestConnectionClicked"/>
+                        <Button x:Name="RefreshButton" DockPanel.Dock="Right" Content="Refresh"
+                                Padding="8,2" Margin="4,0,0,0" Click="OnRefreshModelsClicked"/>
+                        <ComboBox x:Name="ModelComboBox" IsEditable="True"
+                                  Text="{Binding Model, UpdateSourceTrigger=PropertyChanged}"/>
+                    </DockPanel>
+
+                    <TextBlock x:Name="StatusText" Grid.Row="2" Grid.Column="1" Margin="0,2,0,0"
+                               TextWrapping="Wrap" Foreground="Gray" FontStyle="Italic"
+                               MinHeight="18"/>
+                </Grid>
+            </GroupBox>
+
+            <!-- Authentication -->
+            <GroupBox Header="Authentication" Margin="0,0,0,8" Padding="8">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="120"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <CheckBox x:Name="UseAuthCheckBox" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                              Content="Use HTTP Basic authentication"
+                              IsChecked="{Binding UseAuthentication}" Margin="0,0,0,4"/>
+
+                    <Label Grid.Row="1" Grid.Column="0" Content="Username:" VerticalAlignment="Center"/>
+                    <TextBox x:Name="UsernameTextBox" Grid.Row="1" Grid.Column="1" Margin="0,4"
+                             Text="{Binding Username, UpdateSourceTrigger=LostFocus}"
+                             IsEnabled="{Binding ElementName=UseAuthCheckBox, Path=IsChecked}"/>
+
+                    <Label Grid.Row="2" Grid.Column="0" Content="Password:" VerticalAlignment="Center"/>
+                    <PasswordBox x:Name="PasswordBox" Grid.Row="2" Grid.Column="1" Margin="0,4"
+                                 IsEnabled="{Binding ElementName=UseAuthCheckBox, Path=IsChecked}"/>
+                </Grid>
+            </GroupBox>
+
+            <!-- Behavior -->
+            <GroupBox Header="Behavior" Margin="0,0,0,8" Padding="8">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <CheckBox Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                              Content="Enabled (global kill-switch)"
+                              IsChecked="{Binding Enabled}" Margin="0,0,0,4"/>
+
+                    <Label Grid.Row="1" Grid.Column="0" Content="Debounce delay (ms):" VerticalAlignment="Center"/>
+                    <TextBox Grid.Row="1" Grid.Column="1" Margin="0,4" Width="100" HorizontalAlignment="Left"
+                             Text="{Binding DebounceMs, UpdateSourceTrigger=LostFocus}"/>
+
+                    <Label Grid.Row="2" Grid.Column="0" Content="Max prefix characters:" VerticalAlignment="Center"/>
+                    <TextBox Grid.Row="2" Grid.Column="1" Margin="0,4" Width="100" HorizontalAlignment="Left"
+                             Text="{Binding MaxPrefixChars, UpdateSourceTrigger=LostFocus}"/>
+
+                    <Label Grid.Row="3" Grid.Column="0" Content="Max suffix characters:" VerticalAlignment="Center"/>
+                    <TextBox Grid.Row="3" Grid.Column="1" Margin="0,4" Width="100" HorizontalAlignment="Left"
+                             Text="{Binding MaxSuffixChars, UpdateSourceTrigger=LostFocus}"/>
+
+                    <Label Grid.Row="4" Grid.Column="0" Content="Max tokens to predict:" VerticalAlignment="Center"/>
+                    <TextBox Grid.Row="4" Grid.Column="1" Margin="0,4" Width="100" HorizontalAlignment="Left"
+                             Text="{Binding MaxPredict, UpdateSourceTrigger=LostFocus}"/>
+
+                    <Label Grid.Row="5" Grid.Column="0" Content="Request timeout (s):" VerticalAlignment="Center"/>
+                    <TextBox Grid.Row="5" Grid.Column="1" Margin="0,4" Width="100" HorizontalAlignment="Left"
+                             Text="{Binding TimeoutSeconds, UpdateSourceTrigger=LostFocus}"/>
+                </Grid>
+            </GroupBox>
+
+            <!-- Diagnostics -->
+            <GroupBox Header="Diagnostics" Margin="0,0,0,8" Padding="8">
+                <StackPanel>
+                    <CheckBox Content="Log to file (%TEMP%\OllamaCodeCompletions.log)"
+                              IsChecked="{Binding LogToFile}" Margin="0,0,0,4"/>
+                    <CheckBox Content="Log to Output pane"
+                              IsChecked="{Binding LogToOutputPane}" Margin="0,0,0,4"/>
+                    <DockPanel Margin="0,4,0,0" LastChildFill="True">
+                        <Label DockPanel.Dock="Left" Content="Log file:" VerticalAlignment="Center" Width="60"/>
+                        <Button x:Name="OpenLogButton" DockPanel.Dock="Right" Content="Open"
+                                Padding="8,2" Margin="4,0,0,0" Click="OnOpenLogClicked"/>
+                        <TextBox x:Name="LogPathTextBox" IsReadOnly="True" VerticalContentAlignment="Center"/>
+                    </DockPanel>
+                </StackPanel>
+            </GroupBox>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

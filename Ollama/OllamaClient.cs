@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -129,6 +130,132 @@ namespace OllamaCodeCompletions
                     return null;
                 }
             }
+        }
+
+        // ---- Server discovery + diagnostics (used by the Options page UI) ----
+
+        /// <summary>
+        /// Returns the alphabetically-sorted list of model names available on the
+        /// configured Ollama server (GET /api/tags). Throws on any failure — the
+        /// caller is expected to surface the message to the user.
+        /// </summary>
+        public static async Task<List<string>> ListModelsAsync(
+            string serverUrl, bool useAuth, string username, string password, CancellationToken ct)
+        {
+            if (string.IsNullOrWhiteSpace(serverUrl))
+                throw new ArgumentException("Server URL is required.", nameof(serverUrl));
+
+            string url = serverUrl.TrimEnd('/') + "/api/tags";
+
+            using (var http = new HttpRequestMessage(HttpMethod.Get, url))
+            {
+                ApplyBasicAuth(http, useAuth, username, password);
+                Logger.Log("Http", $"GET {url}");
+                var sw = Stopwatch.StartNew();
+                using (var resp = await s_http.SendAsync(http, HttpCompletionOption.ResponseContentRead, ct).ConfigureAwait(false))
+                {
+                    sw.Stop();
+                    Logger.Log("Http", $"{(int)resp.StatusCode} in {sw.ElapsedMilliseconds}ms");
+
+                    if (!resp.IsSuccessStatusCode)
+                        throw new HttpRequestException($"HTTP {(int)resp.StatusCode} {resp.ReasonPhrase}");
+
+                    string body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    var parsed = JObject.Parse(body);
+                    var models = parsed["models"] as JArray;
+                    var result = new List<string>();
+                    if (models != null)
+                    {
+                        foreach (var m in models)
+                        {
+                            string name = (string)m["name"];
+                            if (!string.IsNullOrEmpty(name)) result.Add(name);
+                        }
+                    }
+                    result.Sort(StringComparer.OrdinalIgnoreCase);
+                    return result;
+                }
+            }
+        }
+
+        /// <summary>Result of <see cref="TestConnectionAsync"/>.</summary>
+        public sealed class TestConnectionResult
+        {
+            public bool Success { get; }
+            public string Message { get; }
+            public TestConnectionResult(bool success, string message)
+            {
+                Success = success;
+                Message = message ?? string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// GETs /api/tags to verify reachability + auth, then checks the configured
+        /// model is on the server. Expected failures (HTTP, JSON, auth) come back as
+        /// <see cref="TestConnectionResult"/> with <see cref="TestConnectionResult.Success"/>=false;
+        /// truly unexpected exceptions propagate to the caller.
+        /// </summary>
+        public static async Task<TestConnectionResult> TestConnectionAsync(
+            string serverUrl, string model, bool useAuth, string username, string password, CancellationToken ct)
+        {
+            if (string.IsNullOrWhiteSpace(serverUrl))
+                return new TestConnectionResult(false, "Server URL is empty.");
+
+            string url = serverUrl.TrimEnd('/') + "/api/tags";
+
+            using (var http = new HttpRequestMessage(HttpMethod.Get, url))
+            {
+                ApplyBasicAuth(http, useAuth, username, password);
+                Logger.Log("Http", $"GET {url} (test)");
+                try
+                {
+                    using (var resp = await s_http.SendAsync(http, HttpCompletionOption.ResponseContentRead, ct).ConfigureAwait(false))
+                    {
+                        Logger.Log("Http", $"{(int)resp.StatusCode} (test)");
+                        if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                            return new TestConnectionResult(false, "Authentication failed (HTTP 401).");
+                        if (!resp.IsSuccessStatusCode)
+                            return new TestConnectionResult(false, $"HTTP {(int)resp.StatusCode} {resp.ReasonPhrase}");
+
+                        string body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                        var parsed = JObject.Parse(body);
+                        var models = parsed["models"] as JArray;
+                        if (models == null)
+                            return new TestConnectionResult(false, "Unexpected response shape (no 'models' field).");
+
+                        if (string.IsNullOrWhiteSpace(model))
+                            return new TestConnectionResult(true, $"{models.Count} model(s) available.");
+
+                        foreach (var m in models)
+                        {
+                            string name = (string)m["name"];
+                            if (string.Equals(name, model, StringComparison.OrdinalIgnoreCase))
+                                return new TestConnectionResult(true, $"Model '{model}' is available.");
+                        }
+                        return new TestConnectionResult(false, $"Connected, but model '{model}' is not on the server.");
+                    }
+                }
+                catch (HttpRequestException ex)
+                {
+                    Logger.LogException("Http", ex);
+                    return new TestConnectionResult(false, ex.Message);
+                }
+                catch (JsonReaderException ex)
+                {
+                    Logger.LogException("Http", ex);
+                    return new TestConnectionResult(false, $"Bad response: {ex.Message}");
+                }
+            }
+        }
+
+        /// <summary>Adds an <c>Authorization: Basic …</c> header when auth is enabled.</summary>
+        private static void ApplyBasicAuth(HttpRequestMessage http, bool useAuth, string username, string password)
+        {
+            if (!useAuth) return;
+            string raw = (username ?? string.Empty) + ":" + (password ?? string.Empty);
+            string b64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(raw));
+            http.Headers.Authorization = new AuthenticationHeaderValue("Basic", b64);
         }
 
         /// <summary>Strip stray FIM/EOT sentinels that occasionally leak through.</summary>
