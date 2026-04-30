@@ -9,5 +9,11 @@
 	"publisher": "profanterdev",
 	"private": false,
 	"qna": true,
-	"repo": "https://github.com/marpro200/ollama-code-completions"
+	"repo": "https://github.com/marpro200/ollama-code-completions",
+	"assetFiles": [
+		{
+			"pathOnDisk": "icon.png",
+			"targetPath": "icon.png"
+		}
+	]
 }

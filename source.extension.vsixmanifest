@@ -9,6 +9,8 @@
               Publisher="profanter.dev" />
     <DisplayName>Ollama Code Completions</DisplayName>
     <Description xml:space="preserve">Inline ghost-text autocomplete for Visual Studio, powered by a self-hosted Ollama instance using FIM (fill-in-the-middle) prompting. Supports HTTP Basic auth and credential storage in the Windows Credential Manager.</Description>
+    <Icon>icon.png</Icon>
+    <PreviewImage>icon.png</PreviewImage>
     <Tags>ollama;ai;copilot;autocomplete;completion;fim;ghost-text</Tags>
     <Categories>Coding;Tools</Categories>
   </Metadata>
