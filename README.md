@@ -1,10 +1,8 @@
 # Ollama Code Completions for Visual Studio
 
-> **Previously called "Ollama Copilot"** — if you're searching for the old name, this is the same extension.
-
 Inline ghost-text autocomplete for **Visual Studio 2022 and Visual Studio 2026**, powered by your own self-hosted [Ollama](https://ollama.com/) instance.
 
-It debounces your typing, sends the code before *and* after the cursor to Ollama using **fill-in-the-middle (FIM)** prompting, and renders the result as inline ghost text. **Tab** to accept, **Esc** to dismiss. Credentials for your Ollama server (HTTP Basic auth) are stored in the **Windows Credential Manager**, never in plaintext settings.
+It debounces your typing, sends the code before _and_ after the cursor to Ollama using **fill-in-the-middle (FIM)** prompting, and renders the result as inline ghost text. **Tab** to accept, **Esc** to dismiss. Credentials for your Ollama server (HTTP Basic auth) are stored in the **Windows Credential Manager**, never in plaintext settings.
 
 ```
 def quicksort(arr):
@@ -70,19 +68,19 @@ The VSIX will land at `bin/Release/OllamaCodeCompletions.vsix`.
 
 Open **Tools → Options → Ollama Code Completions → General**.
 
-| Category | Setting | Default | Notes |
-|---|---|---|---|
-| Connection | Server URL | `http://localhost:11434` | Base URL only — no trailing `/api/generate`. |
-| Connection | Model | `qwen2.5-coder:1.5b` | Any FIM-capable Ollama model tag. |
-| Authentication | Use HTTP Basic authentication | `false` | When on, sends `Authorization: Basic <base64>` on every request. |
-| Authentication | Username | *(empty)* | Stored in Windows Credential Manager. |
-| Authentication | Password | *(empty)* | Stored in Windows Credential Manager. Shown as `********` once set. |
-| Behavior | Enabled | `true` | Global kill-switch. |
-| Behavior | Debounce delay (ms) | `300` | Idle time after the last keystroke before a request fires. |
-| Behavior | Max prefix characters | `4096` | Context before the cursor. |
-| Behavior | Max suffix characters | `1024` | Context after the cursor. |
-| Behavior | Max tokens to predict | `128` | Hard ceiling per suggestion (`num_predict`). |
-| Behavior | Request timeout (seconds) | `30` | Per-request HTTP timeout. |
+| Category       | Setting                       | Default                  | Notes                                                               |
+| -------------- | ----------------------------- | ------------------------ | ------------------------------------------------------------------- |
+| Connection     | Server URL                    | `http://localhost:11434` | Base URL only — no trailing `/api/generate`.                        |
+| Connection     | Model                         | `qwen2.5-coder:1.5b`     | Any FIM-capable Ollama model tag.                                   |
+| Authentication | Use HTTP Basic authentication | `false`                  | When on, sends `Authorization: Basic <base64>` on every request.    |
+| Authentication | Username                      | _(empty)_                | Stored in Windows Credential Manager.                               |
+| Authentication | Password                      | _(empty)_                | Stored in Windows Credential Manager. Shown as `********` once set. |
+| Behavior       | Enabled                       | `true`                   | Global kill-switch.                                                 |
+| Behavior       | Debounce delay (ms)           | `300`                    | Idle time after the last keystroke before a request fires.          |
+| Behavior       | Max prefix characters         | `4096`                   | Context before the cursor.                                          |
+| Behavior       | Max suffix characters         | `1024`                   | Context after the cursor.                                           |
+| Behavior       | Max tokens to predict         | `128`                    | Hard ceiling per suggestion (`num_predict`).                        |
+| Behavior       | Request timeout (seconds)     | `30`                     | Per-request HTTP timeout.                                           |
 
 ### Recommended models
 
@@ -220,7 +218,7 @@ OllamaCopilot/
 
 **Suggestions appear but always look like prose / explanations.** You're using an instruct-tuned model. Switch to the base or `:code` variant — for example `qwen2.5-coder:7b-base` or `codellama:7b-code`.
 
-**Auth always fails.** Open *Credential Manager* (Windows) → *Windows Credentials* and look for `OllamaCopilot:Auth`. You can delete it there to reset. Re-enter the password in Tools → Options.
+**Auth always fails.** Open _Credential Manager_ (Windows) → _Windows Credentials_ and look for `OllamaCopilot:Auth`. You can delete it there to reset. Re-enter the password in Tools → Options.
 
 **Tab never inserts the suggestion.** Another extension may be eating Tab earlier in the command chain. Try briefly disabling other AI / IntelliSense extensions to isolate.
 
