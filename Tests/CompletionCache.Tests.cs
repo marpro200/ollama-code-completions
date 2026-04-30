@@ -2,7 +2,7 @@
 //
 // To compile and run standalone:
 //   set CSC="C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\Roslyn\csc.exe"
-//   %CSC% /define:TEST /langversion:9.0 /out:CacheTests.exe CompletionCache.cs CompletionCache.Tests.cs
+//   %CSC% /define:TEST /langversion:9.0 /out:CacheTests.exe Editor/CompletionCache.cs Tests/CompletionCache.Tests.cs
 //   CacheTests.exe
 //
 // The VSIX build does not define TEST, so this file contributes no types.
@@ -10,7 +10,7 @@
 #if TEST
 using System;
 
-namespace OllamaCopilot
+namespace OllamaCodeCompletions
 {
     internal static class CompletionCacheTests
     {

@@ -3,7 +3,7 @@ using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace OllamaCopilot
+namespace OllamaCodeCompletions
 {
     /// <summary>
     /// Thin wrapper around the Windows Credential Manager (advapi32.dll).
@@ -73,7 +73,7 @@ namespace OllamaCopilot
                     Persist = CRED_PERSIST.LOCAL_MACHINE, // per-user, persists across reboots, no admin required
                     AttributeCount = 0,
                     Attributes = IntPtr.Zero,
-                    Comment = "Ollama Copilot HTTP Basic auth",
+                    Comment = "Ollama Code Completions HTTP Basic auth",
                     TargetAlias = null,
                 };
 

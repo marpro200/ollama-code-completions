@@ -3,7 +3,7 @@ using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Formatting;
 using Microsoft.VisualStudio.Utilities;
 
-namespace OllamaCopilot
+namespace OllamaCodeCompletions
 {
     [Export(typeof(ILineTransformSourceProvider))]
     [ContentType("code")]

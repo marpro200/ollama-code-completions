@@ -4,7 +4,7 @@ using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.TextManager.Interop;
 using Microsoft.VisualStudio.Utilities;
 
-namespace OllamaCopilot
+namespace OllamaCodeCompletions
 {
     /// <summary>
     /// Hooks <see cref="CommandFilter"/> into the IVsTextView command-target chain.

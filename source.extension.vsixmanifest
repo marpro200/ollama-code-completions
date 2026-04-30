@@ -7,7 +7,7 @@
               Version="1.0.0"
               Language="en-US"
               Publisher="OllamaCopilot" />
-    <DisplayName>Ollama Copilot</DisplayName>
+    <DisplayName>Ollama Code Completions</DisplayName>
     <Description xml:space="preserve">Inline ghost-text autocomplete for Visual Studio, powered by a self-hosted Ollama instance using FIM (fill-in-the-middle) prompting. Supports HTTP Basic auth and credential storage in the Windows Credential Manager.</Description>
     <Tags>ollama;ai;copilot;autocomplete;completion;fim;ghost-text</Tags>
     <Categories>Coding;Tools</Categories>

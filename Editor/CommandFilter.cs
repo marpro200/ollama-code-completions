@@ -3,7 +3,7 @@ using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.OLE.Interop;
 using Microsoft.VisualStudio.Text.Editor;
 
-namespace OllamaCopilot
+namespace OllamaCodeCompletions
 {
     /// <summary>
     /// Sits in the editor's IOleCommandTarget chain and steals Tab / Escape

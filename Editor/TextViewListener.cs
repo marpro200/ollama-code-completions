@@ -3,7 +3,7 @@ using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Utilities;
 
-namespace OllamaCopilot
+namespace OllamaCodeCompletions
 {
     /// <summary>
     /// MEF entry point for WPF text views. Two responsibilities:

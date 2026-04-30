@@ -11,7 +11,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 
-namespace OllamaCopilot
+namespace OllamaCodeCompletions
 {
     /// <summary>
     /// Owns the inline-suggestion lifecycle for one editor view:
@@ -120,7 +120,7 @@ namespace OllamaCopilot
             }
             catch (Exception ex)
             {
-                await StatusBar.SetAsync("Ollama Copilot: " + ex.Message).ConfigureAwait(false);
+                await StatusBar.SetAsync("Ollama Code Completions: " + ex.Message).ConfigureAwait(false);
             }
         }
 
@@ -176,7 +176,7 @@ namespace OllamaCopilot
                 password = creds.Password;
             }
 
-            await StatusBar.SetAsync("Ollama Copilot: thinking…").ConfigureAwait(false);
+            await StatusBar.SetAsync("Ollama Code Completions: thinking…").ConfigureAwait(false);
 
             string completion;
             try
@@ -492,16 +492,16 @@ namespace OllamaCopilot
             ThreadHelper.ThrowIfNotOnUIThread();
             try
             {
-                if (OllamaCopilotPackage.Instance != null)
-                    return OllamaCopilotPackage.Instance.Options;
+                if (OllamaCodeCompletionsPackage.Instance != null)
+                    return OllamaCodeCompletionsPackage.Instance.Options;
 
                 // Force-load the package if MEF beat the auto-load.
                 if (Package.GetGlobalService(typeof(SVsShell)) is IVsShell shell)
                 {
-                    var pkgGuid = new Guid(OllamaCopilotPackage.PackageGuidString);
+                    var pkgGuid = new Guid(OllamaCodeCompletionsPackage.PackageGuidString);
                     shell.LoadPackage(ref pkgGuid, out _);
                 }
-                return OllamaCopilotPackage.Instance?.Options;
+                return OllamaCodeCompletionsPackage.Instance?.Options;
             }
             catch
             {

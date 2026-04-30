@@ -2,7 +2,7 @@
 //
 // To compile and run standalone:
 //   set CSC="C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\Roslyn\csc.exe"
-//   %CSC% /define:TEST /langversion:9.0 /out:FileHeaderTests.exe FileHeaderBuilder.cs FileHeaderBuilder.Tests.cs
+//   %CSC% /define:TEST /langversion:9.0 /out:FileHeaderTests.exe Infrastructure/FileHeaderBuilder.cs Tests/FileHeaderBuilder.Tests.cs
 //   FileHeaderTests.exe
 //
 // The #if !TEST guard in FileHeaderBuilder.cs excludes all VS-specific code so no
@@ -12,7 +12,7 @@
 using System;
 using System.IO;
 
-namespace OllamaCopilot
+namespace OllamaCodeCompletions
 {
     internal static class FileHeaderBuilderTests
     {

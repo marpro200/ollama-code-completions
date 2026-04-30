@@ -1,7 +1,7 @@
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011">
   <Metadata>
     <Identity Id="OllamaCopilot.f3d1e8a4-2c5e-4c1a-9ff7-3b9e4c8a7d51" Version="1.0.0" Language="en-US" Publisher="OllamaCopilot" />
-    <DisplayName>Ollama Copilot</DisplayName>
+    <DisplayName>Ollama Code Completions</DisplayName>
     <Description xml:space="preserve">Inline ghost-text autocomplete for Visual Studio, powered by a self-hosted Ollama instance using FIM (fill-in-the-middle) prompting. Supports HTTP Basic auth and credential storage in the Windows Credential Manager.</Description>
     <Tags>ollama;ai;copilot;autocomplete;completion;fim;ghost-text</Tags>
     <Categories>Coding;Tools</Categories>
@@ -23,7 +23,7 @@
     <Prerequisite Id="Microsoft.VisualStudio.Component.CoreEditor" Version="[17.0,)" DisplayName="Visual Studio core editor" />
   </Prerequisites>
   <Assets>
-    <Asset Type="Microsoft.VisualStudio.VsPackage" Path="OllamaCopilot.pkgdef" />
-    <Asset Type="Microsoft.VisualStudio.MefComponent" Path="OllamaCopilot.dll" />
+    <Asset Type="Microsoft.VisualStudio.VsPackage" Path="OllamaCodeCompletions.pkgdef" />
+    <Asset Type="Microsoft.VisualStudio.MefComponent" Path="OllamaCodeCompletions.dll" />
   </Assets>
 </PackageManifest>

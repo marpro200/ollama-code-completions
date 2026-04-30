@@ -2,10 +2,10 @@ using System.ComponentModel;
 using System.Runtime.InteropServices;
 using Microsoft.VisualStudio.Shell;
 
-namespace OllamaCopilot
+namespace OllamaCodeCompletions
 {
     /// <summary>
-    /// Tools → Options → Ollama Copilot → General.
+    /// Tools → Options → Ollama Code Completions → General.
     ///
     /// Most properties are auto-persisted by VS's <see cref="DialogPage"/>.
     /// <see cref="Username"/> and <see cref="Password"/> are NOT persisted that way —

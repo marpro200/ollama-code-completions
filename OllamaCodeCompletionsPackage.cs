@@ -5,7 +5,7 @@ using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
 using Task = System.Threading.Tasks.Task;
 
-namespace OllamaCopilot
+namespace OllamaCodeCompletions
 {
     /// <summary>
     /// Top-level VS package. Its main jobs are:
@@ -14,16 +14,16 @@ namespace OllamaCopilot
     ///    (the suggestion session, command filter) by the time the user starts typing.
     /// </summary>
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
-    [InstalledProductRegistration("Ollama Copilot", "Inline ghost-text autocomplete via Ollama.", "1.0.0")]
+    [InstalledProductRegistration("Ollama Code Completions", "Inline ghost-text autocomplete via Ollama.", "1.0.0")]
     [Guid(PackageGuidString)]
-    [ProvideOptionPage(typeof(OptionsPage), "Ollama Copilot", "General", 0, 0, true)]
+    [ProvideOptionPage(typeof(OptionsPage), "Ollama Code Completions", "General", 0, 0, true)]
     [ProvideAutoLoad(VSConstants.UICONTEXT.NoSolution_string, PackageAutoLoadFlags.BackgroundLoad)]
     [ProvideAutoLoad(VSConstants.UICONTEXT.SolutionExists_string, PackageAutoLoadFlags.BackgroundLoad)]
-    public sealed class OllamaCopilotPackage : AsyncPackage
+    public sealed class OllamaCodeCompletionsPackage : AsyncPackage
     {
         public const string PackageGuidString = "f3d1e8a4-2c5e-4c1a-9ff7-3b9e4c8a7d51";
 
-        public static OllamaCopilotPackage Instance { get; private set; }
+        public static OllamaCodeCompletionsPackage Instance { get; private set; }
 
         protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
         {

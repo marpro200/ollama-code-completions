@@ -1,6 +1,6 @@
 using System;
 
-namespace OllamaCopilot
+namespace OllamaCodeCompletions
 {
     public static class CompletionPostProcessor
     {

@@ -2,7 +2,7 @@
 //
 // To compile and run standalone (no test framework required):
 //   set CSC="C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\Roslyn\csc.exe"
-//   %CSC% /define:TEST /langversion:9.0 /out:PostProcessorTests.exe CompletionPostProcessor.cs CompletionPostProcessor.Tests.cs
+//   %CSC% /define:TEST /langversion:9.0 /out:PostProcessorTests.exe Editor/CompletionPostProcessor.cs Tests/CompletionPostProcessor.Tests.cs
 //   PostProcessorTests.exe
 //
 // The VSIX build does not define TEST, so this file contributes no types and
@@ -11,7 +11,7 @@
 #if TEST
 using System;
 
-namespace OllamaCopilot
+namespace OllamaCodeCompletions
 {
     internal static class CompletionPostProcessorTests
     {

@@ -1,4 +1,6 @@
-# Ollama Copilot for Visual Studio
+# Ollama Code Completions for Visual Studio
+
+> **Previously called "Ollama Copilot"** — if you're searching for the old name, this is the same extension.
 
 Inline ghost-text autocomplete for **Visual Studio 2022 and Visual Studio 2026**, powered by your own self-hosted [Ollama](https://ollama.com/) instance.
 
@@ -28,7 +30,7 @@ def quicksort(arr):
 - **Tab to accept, Esc to dismiss** — only intercepted when a suggestion is actually showing.
 - **HTTP Basic auth** — for self-hosted instances behind a reverse proxy (nginx, Caddy, Traefik, Cloudflare Access).
 - **Secure credential storage** — username/password stored in the Windows Credential Manager under target `OllamaCopilot:Auth`.
-- **Status bar feedback** — shows `Ollama Copilot: thinking…` while a request is in flight.
+- **Status bar feedback** — shows `Ollama Code Completions: thinking…` while a request is in flight.
 - **Crash-safe** — connection failures, timeouts, and bad config never throw out of the extension.
 
 ---
@@ -38,7 +40,7 @@ def quicksort(arr):
 ### From the prebuilt VSIX
 
 1. Build the project (see below) or download a release.
-2. Double-click `OllamaCopilot.vsix`.
+2. Double-click `OllamaCodeCompletions.vsix`.
 3. Pick the VS instances you want to install into (VS 2022 and/or VS 2026).
 4. Restart Visual Studio.
 
@@ -54,11 +56,11 @@ Then:
 ```
 git clone <this-repo>
 cd OllamaCopilot
-dotnet restore OllamaCopilot.sln
-msbuild OllamaCopilot.sln /p:Configuration=Release
+dotnet restore OllamaCodeCompletions.sln
+msbuild OllamaCodeCompletions.sln /p:Configuration=Release
 ```
 
-The VSIX will land at `bin/Release/OllamaCopilot.vsix`.
+The VSIX will land at `bin/Release/OllamaCodeCompletions.vsix`.
 
 > **Note on VS 2026:** A single `[17.0,)` install target covers both VS 2022 and VS 2026. VS 2026 introduced an API-version-based compatibility model, so VS 2022 VSIXes load unchanged when they target supported APIs — which this extension does.
 
@@ -66,7 +68,7 @@ The VSIX will land at `bin/Release/OllamaCopilot.vsix`.
 
 ## Configuration
 
-Open **Tools → Options → Ollama Copilot → General**.
+Open **Tools → Options → Ollama Code Completions → General**.
 
 | Category | Setting | Default | Notes |
 |---|---|---|---|
@@ -141,7 +143,7 @@ The extension is a no-op if:
 
 - **Enabled** is off in settings, or
 - the cursor is in an empty file with no surrounding context, or
-- Ollama is unreachable (you'll see `Ollama Copilot: <error>` in the status bar; the IDE keeps working normally).
+- Ollama is unreachable (you'll see `Ollama Code Completions: <error>` in the status bar; the IDE keeps working normally).
 
 ---
 
@@ -177,20 +179,36 @@ Tab / Esc are handled by an `IOleCommandTarget` (`CommandFilter`) that's chained
 
 ```
 OllamaCopilot/
-├── OllamaCopilot.csproj               SDK-style net472 VSIX project
+├── OllamaCodeCompletions.csproj       SDK-style net472 VSIX project
+├── OllamaCodeCompletions.sln
 ├── source.extension.vsixmanifest      install targets + assets
-├── OllamaCopilotPackage.cs            AsyncPackage, registers OptionsPage
-├── OptionsPage.cs                     Tools → Options entries
-├── CredentialStorage.cs               Windows Credential Manager P/Invoke
-├── OllamaClient.cs                    /api/generate + FIM + Basic auth
-├── StatusBar.cs                       Status bar helper
-├── TextViewListener.cs                MEF: defines adornment layer, attaches sessions
-├── SuggestionSession.cs               Per-view: debounce, cache, request, render, accept
-├── CompletionPostProcessor.cs         Cleans raw FIM output (7-stage pipeline)
-├── CompletionCache.cs                 Per-view bounded LRU cache (prefix, suffix) → completion
-├── FileHeaderBuilder.cs               Builds the "// File: …" prompt header
-├── CommandFilter.cs                   Tab/Esc interception
-├── CommandFilterProvider.cs           MEF: chains the filter into IVsTextView
+├── OllamaCodeCompletionsPackage.cs    AsyncPackage, registers OptionsPage
+│
+├── Editor/
+│   ├── TextViewListener.cs            MEF: defines adornment layer, attaches sessions
+│   ├── SuggestionSession.cs           Per-view: debounce, cache, request, render, accept
+│   ├── CommandFilter.cs               Tab/Esc interception
+│   ├── CommandFilterProvider.cs       MEF: chains the filter into IVsTextView
+│   ├── GhostTextLineTransformSource.cs  Extra vertical space for multi-line ghost text
+│   ├── CompletionPostProcessor.cs     Cleans raw FIM output (7-stage pipeline)
+│   └── CompletionCache.cs             Per-view bounded LRU cache (prefix, suffix) → completion
+│
+├── Ollama/
+│   └── OllamaClient.cs                /api/generate + FIM + Basic auth
+│
+├── Settings/
+│   ├── OptionsPage.cs                 Tools → Options entries
+│   └── CredentialStorage.cs           Windows Credential Manager P/Invoke
+│
+├── Infrastructure/
+│   ├── StatusBar.cs                   Status bar helper
+│   └── FileHeaderBuilder.cs           Builds the "// File: …" prompt header
+│
+├── Tests/
+│   ├── CompletionPostProcessor.Tests.cs
+│   ├── CompletionCache.Tests.cs
+│   └── FileHeaderBuilder.Tests.cs
+│
 └── README.md                          this file
 ```
 

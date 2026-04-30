@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace OllamaCopilot
+namespace OllamaCodeCompletions
 {
     /// <summary>
     /// Bounded LRU cache of post-processed completions, keyed by (prefix, suffix).

@@ -6,8 +6,8 @@
 
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
-    <RootNamespace>OllamaCopilot</RootNamespace>
-    <AssemblyName>OllamaCopilot</AssemblyName>
+    <RootNamespace>OllamaCodeCompletions</RootNamespace>
+    <AssemblyName>OllamaCodeCompletions</AssemblyName>
     <LangVersion>9.0</LangVersion>
     <UseCodebase>true</UseCodebase>
 
