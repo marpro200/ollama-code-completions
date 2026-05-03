@@ -1,5 +1,9 @@
 # Ollama Code Completions for Visual Studio
 
+[![VS Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/profanterdev.OllamaCodeCompletions?label=VS%20Marketplace&color=blue)](https://marketplace.visualstudio.com/items?itemName=profanterdev.OllamaCodeCompletions) [![Installs](https://img.shields.io/visual-studio-marketplace/i/profanterdev.OllamaCodeCompletions?label=installs&color=brightgreen)](https://marketplace.visualstudio.com/items?itemName=profanterdev.OllamaCodeCompletions) [![Rating](https://img.shields.io/visual-studio-marketplace/r/profanterdev.OllamaCodeCompletions?label=rating)](https://marketplace.visualstudio.com/items?itemName=profanterdev.OllamaCodeCompletions) [![Build](https://img.shields.io/github/actions/workflow/status/profanter-dev/ollama-code-completions/build.yml?label=build)](https://github.com/profanter-dev/ollama-code-completions/actions)
+
+> **Install:** [Get it on the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=profanterdev.OllamaCodeCompletions) or grab the latest `.vsix` from [Releases](https://github.com/profanter-dev/ollama-code-completions/releases).
+
 Inline ghost-text autocomplete for **Visual Studio 2022 and Visual Studio 2026**, powered by your own self-hosted [Ollama](https://ollama.com/) instance.
 
 It debounces your typing, sends the code before _and_ after the cursor to Ollama using **fill-in-the-middle (FIM)** prompting, and renders the result as inline ghost text. **Tab** to accept, **Esc** to dismiss. Credentials for your Ollama server (HTTP Basic auth) are stored in the **Windows Credential Manager**, never in plaintext settings.
