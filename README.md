@@ -1,6 +1,6 @@
 # Ollama Code Completions for Visual Studio
 
-[![VS Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/profanterdev.OllamaCodeCompletions?label=VS%20Marketplace&color=blue)](https://marketplace.visualstudio.com/items?itemName=profanterdev.OllamaCodeCompletions) [![Installs](https://img.shields.io/visual-studio-marketplace/i/profanterdev.OllamaCodeCompletions?label=installs&color=brightgreen)](https://marketplace.visualstudio.com/items?itemName=profanterdev.OllamaCodeCompletions) [![Rating](https://img.shields.io/visual-studio-marketplace/r/profanterdev.OllamaCodeCompletions?label=rating)](https://marketplace.visualstudio.com/items?itemName=profanterdev.OllamaCodeCompletions) [![Build](https://img.shields.io/github/actions/workflow/status/profanter-dev/ollama-code-completions/build.yml?label=build)](https://github.com/profanter-dev/ollama-code-completions/actions)
+[![VS Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/profanterdev.OllamaCodeCompletions?label=VS%20Marketplace&color=blue)](https://marketplace.visualstudio.com/items?itemName=profanterdev.OllamaCodeCompletions) [![Installs](https://img.shields.io/visual-studio-marketplace/i/profanterdev.OllamaCodeCompletions?label=installs&color=brightgreen)](https://marketplace.visualstudio.com/items?itemName=profanterdev.OllamaCodeCompletions) [![Rating](https://img.shields.io/visual-studio-marketplace/r/profanterdev.OllamaCodeCompletions?label=rating)](https://marketplace.visualstudio.com/items?itemName=profanterdev.OllamaCodeCompletions) [![Build](https://img.shields.io/github/actions/workflow/status/profanter-dev/ollama-code-completions/build.yml?label=build)](https://github.com/profanter-dev/ollama-code-completions/actions) [![License](https://img.shields.io/github/license/profanter-dev/ollama-code-completions?color=lightgrey)](https://github.com/profanter-dev/ollama-code-completions/blob/main/LICENSE)
 
 > **Install:** [Get it on the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=profanterdev.OllamaCodeCompletions) or grab the latest `.vsix` from [Releases](https://github.com/profanter-dev/ollama-code-completions/releases).
 
@@ -235,4 +235,4 @@ OllamaCopilot/
 
 ## License
 
-MIT.
+[MIT](LICENSE)
