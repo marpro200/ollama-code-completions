@@ -1,5 +1,4 @@
 using System.ComponentModel.Composition;
-using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Utilities;
 
@@ -32,17 +31,7 @@ namespace OllamaCodeCompletions
 
         public void TextViewCreated(IWpfTextView textView)
         {
-            string contentType = textView.TextBuffer.ContentType?.TypeName ?? "(unknown)";
-            string roles = string.Join(",", textView.Roles);
-
-            if (!textView.TextBuffer.Properties.TryGetProperty(
-                    typeof(ITextDocument), out ITextDocument doc))
-            {
-                Logger.Log("Attach", $"skip (no ITextDocument) contentType={contentType} roles=[{roles}]");
-                return;
-            }
-
-            Logger.Log("Attach", $"contentType={contentType} roles=[{roles}] file={doc.FilePath ?? "(unsaved)"}");
+            if (!ViewFilter.ShouldAttach(textView, "TextViewListener")) return;
 
             // Lazy-create the per-view session so it's wired to text/caret events.
             SuggestionSession.GetOrCreate(textView);

@@ -28,7 +28,7 @@ namespace OllamaCodeCompletions
         public void VsTextViewCreated(IVsTextView textViewAdapter)
         {
             var view = AdaptersFactory?.GetWpfTextView(textViewAdapter);
-            if (view == null) return;
+            if (!ViewFilter.ShouldAttach(view, "CommandFilterProvider")) return;
 
             var filter = new CommandFilter(view);
             textViewAdapter.AddCommandFilter(filter, out var next);

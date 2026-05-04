@@ -1,5 +1,4 @@
 using System.ComponentModel.Composition;
-using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Formatting;
 using Microsoft.VisualStudio.Utilities;
@@ -17,11 +16,7 @@ namespace OllamaCodeCompletions
     {
         public ILineTransformSource Create(IWpfTextView textView)
         {
-            if (!textView.TextBuffer.Properties.TryGetProperty(
-                    typeof(ITextDocument), out ITextDocument _))
-            {
-                return null;
-            }
+            if (!ViewFilter.ShouldAttach(textView, "GhostTextLineTransformSourceProvider")) return null;
 
             return new GhostTextLineTransformSource(SuggestionSession.GetOrCreate(textView));
         }

@@ -20,6 +20,7 @@ namespace OllamaCodeCompletions
     {
         public IOleCommandTarget Next { get; set; }
         private readonly IWpfTextView _view;
+        private bool? _attached; // cached ViewFilter.ShouldAttach result; logged once per filter instance
 
         public CommandFilter(IWpfTextView view)
         {
@@ -36,6 +37,16 @@ namespace OllamaCodeCompletions
         {
             try
             {
+                // Defense-in-depth backstop: even though CommandFilterProvider already
+                // gates attachment via ViewFilter.ShouldAttach, this filter must never
+                // create a SuggestionSession on a non-document view. Cache the result
+                // so we don't log+recompute on every keystroke.
+                if (_attached == null)
+                    _attached = ViewFilter.ShouldAttach(_view, "CommandFilter.Exec");
+                if (!_attached.Value)
+                    return Next?.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut)
+                           ?? (int)Constants.OLECMDERR_E_NOTSUPPORTED;
+
                 var session = SuggestionSession.GetOrCreate(_view);
 
                 if (pguidCmdGroup == VSConstants.VSStd2K && session.HasActiveSuggestion)
