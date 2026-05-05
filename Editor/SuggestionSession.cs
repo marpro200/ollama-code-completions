@@ -156,6 +156,14 @@ namespace OllamaCodeCompletions
             // Don't send empty-prefix-and-empty-suffix requests (cursor in totally empty file).
             if (prefix.Length == 0 && suffix.Length == 0) return;
 
+            // Don't show suggestions when the cursor is mid-line — ghost text would paint on
+            // top of the text to the right of the caret with no clean way to push it aside.
+            if (HasNonWhitespaceAfterCursor(lineAfterCursor))
+            {
+                Logger.Log("Skip", "mid-line cursor (text after caret on same line)");
+                return;
+            }
+
             ITrackingPoint anchor = snapshot.CreateTrackingPoint(caret, PointTrackingMode.Negative);
 
             // Prepend file header so the model knows the language and project layout.
@@ -233,6 +241,14 @@ namespace OllamaCodeCompletions
             int currentCaret = _view.Caret.Position.BufferPosition.Position;
             int anchorNow = anchor.GetPosition(_view.TextSnapshot);
             if (currentCaret != anchorNow) return;
+
+            // The user may have typed on the same line while the request was in-flight.
+            string currentLineAfterCursor = GetLineAfterCursor(_view.TextSnapshot, currentCaret);
+            if (HasNonWhitespaceAfterCursor(currentLineAfterCursor))
+            {
+                Logger.Log("Skip", "mid-line at render time (text appeared after cursor on same line)");
+                return;
+            }
 
             ShowSuggestion(anchor, completion);
         }
@@ -510,6 +526,9 @@ namespace OllamaCodeCompletions
             string prefix = snapshot.GetText(prefixStart, caret - prefixStart);
             string suffix = snapshot.GetText(caret, suffixEnd - caret);
 
+            if (HasNonWhitespaceAfterCursor(GetLineAfterCursor(snapshot, caret)))
+                return false;
+
             // Match the header prepended by RequestSuggestionAsync so cache keys align.
             string fileHeader = FileHeaderBuilder.TryBuildFileHeader(_view);
             if (!string.IsNullOrEmpty(fileHeader))
@@ -586,5 +605,16 @@ namespace OllamaCodeCompletions
             int ms = o?.DebounceMs ?? 300;
             return Math.Max(0, ms);
         }
+
+        // ---------------------- mid-line helpers ----------------------
+
+        private static string GetLineAfterCursor(ITextSnapshot snapshot, int caret)
+        {
+            ITextSnapshotLine line = snapshot.GetLineFromPosition(caret);
+            return snapshot.GetText(caret, line.End.Position - caret);
+        }
+
+        private static bool HasNonWhitespaceAfterCursor(string lineAfterCursor)
+            => !string.IsNullOrWhiteSpace(lineAfterCursor);
     }
 }

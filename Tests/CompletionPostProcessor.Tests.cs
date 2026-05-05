@@ -150,8 +150,33 @@ namespace OllamaCodeCompletions
                 bufferAfterCursor: ");",
                 expected:          null);
 
+            // HasNonWhitespaceAfterCursor (mirrors SuggestionSession helper; tested inline
+            // because SuggestionSession has VS SDK dependencies not available here)
+            static bool HasNonWhitespaceAfterCursor(string s) => !string.IsNullOrWhiteSpace(s);
+            CheckBool("HasNonWhitespace empty",       HasNonWhitespaceAfterCursor(""),      false);
+            CheckBool("HasNonWhitespace spaces",      HasNonWhitespaceAfterCursor("   "),   false);
+            CheckBool("HasNonWhitespace tabs",        HasNonWhitespaceAfterCursor("\t\t"),  false);
+            CheckBool("HasNonWhitespace text",        HasNonWhitespaceAfterCursor("foo"),   true);
+            CheckBool("HasNonWhitespace mixed",       HasNonWhitespaceAfterCursor("  foo"), true);
+
             Console.WriteLine($"\n{_pass} passed, {_fail} failed.");
             return _fail == 0 ? 0 : 1;
+        }
+
+        static void CheckBool(string name, bool actual, bool expected)
+        {
+            if (actual == expected)
+            {
+                Console.WriteLine($"  PASS  {name}");
+                _pass++;
+            }
+            else
+            {
+                Console.WriteLine($"  FAIL  {name}");
+                Console.WriteLine($"        expected: {expected}");
+                Console.WriteLine($"        actual:   {actual}");
+                _fail++;
+            }
         }
 
         static void Check(string name,
