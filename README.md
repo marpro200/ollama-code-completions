@@ -2,7 +2,9 @@
 
 [![VS Marketplace Version](https://vsmarketplacebadges.dev/version-short/profanterdev.OllamaCodeCompletions.png?label=VS%20Marketplace&color=blue)](https://marketplace.visualstudio.com/items?itemName=profanterdev.OllamaCodeCompletions) [![Installs](https://vsmarketplacebadges.dev/installs-short/profanterdev.OllamaCodeCompletions.png?label=installs&color=brightgreen)](https://marketplace.visualstudio.com/items?itemName=profanterdev.OllamaCodeCompletions) [![Rating](https://vsmarketplacebadges.dev/rating-short/profanterdev.OllamaCodeCompletions.png?label=rating)](https://marketplace.visualstudio.com/items?itemName=profanterdev.OllamaCodeCompletions) [![Build](https://img.shields.io/github/actions/workflow/status/profanter-dev/ollama-code-completions/build.yml?label=build)](https://github.com/profanter-dev/ollama-code-completions/actions) [![License](https://img.shields.io/badge/license-MIT-lightgrey)](https://github.com/profanter-dev/ollama-code-completions/blob/main/LICENSE)
 
-> **Install:** [Get it on the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=profanterdev.OllamaCodeCompletions) or grab the latest `.vsix` from [Releases](https://github.com/profanter-dev/ollama-code-completions/releases).
+**Also available for** [Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=profanterdev.ollama-code-completions)
+
+---
 
 Inline ghost-text autocomplete for **Visual Studio 2022 and Visual Studio 2026**, powered by your own self-hosted [Ollama](https://ollama.com/) instance.
 
