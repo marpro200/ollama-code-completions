@@ -14,6 +14,18 @@ using System.Windows.Media;
 
 namespace OllamaCodeCompletions
 {
+    internal enum InsertionMode
+    {
+        InsertAtCursor,
+        ReplaceToEndOfLine,
+    }
+
+    internal sealed class SuggestionStateChangedEventArgs : EventArgs
+    {
+        public SnapshotSpan? AffectedSpan { get; }
+        public SuggestionStateChangedEventArgs(SnapshotSpan? affected) { AffectedSpan = affected; }
+    }
+
     /// <summary>
     /// Owns the inline-suggestion lifecycle for one editor view:
     ///
@@ -43,9 +55,12 @@ namespace OllamaCodeCompletions
         private IAdornmentLayer _layer;
         private string _suggestion;          // raw text returned by Ollama (may be multi-line)
         private ITrackingPoint _anchor;      // tracks the cursor position the suggestion is for
+        private InsertionMode _insertionMode;
         private bool _suppressBufferEvent;   // set while applying our own edits
         private string _lastSeenModel;       // for detecting model changes that require a cache clear
         private int _extraLineCount;         // lines 2..N of the current suggestion (0 for single-line)
+
+        public event EventHandler<SuggestionStateChangedEventArgs> SuggestionStateChanged;
 
         private SuggestionSession(IWpfTextView view)
         {
@@ -57,6 +72,12 @@ namespace OllamaCodeCompletions
         }
 
         public bool HasActiveSuggestion => !string.IsNullOrEmpty(_suggestion);
+        public InsertionMode CurrentInsertionMode => _insertionMode;
+
+        public int GetAnchorPosition(ITextSnapshot snapshot)
+        {
+            return _anchor?.GetPosition(snapshot) ?? -1;
+        }
 
         // ---------------------- event handlers ----------------------
 
@@ -156,14 +177,6 @@ namespace OllamaCodeCompletions
             // Don't send empty-prefix-and-empty-suffix requests (cursor in totally empty file).
             if (prefix.Length == 0 && suffix.Length == 0) return;
 
-            // Don't show suggestions when the cursor is mid-line — ghost text would paint on
-            // top of the text to the right of the caret with no clean way to push it aside.
-            if (HasNonWhitespaceAfterCursor(lineAfterCursor))
-            {
-                Logger.Log("Skip", "mid-line cursor (text after caret on same line)");
-                return;
-            }
-
             ITrackingPoint anchor = snapshot.CreateTrackingPoint(caret, PointTrackingMode.Negative);
 
             // Prepend file header so the model knows the language and project layout.
@@ -242,14 +255,6 @@ namespace OllamaCodeCompletions
             int anchorNow = anchor.GetPosition(_view.TextSnapshot);
             if (currentCaret != anchorNow) return;
 
-            // The user may have typed on the same line while the request was in-flight.
-            string currentLineAfterCursor = GetLineAfterCursor(_view.TextSnapshot, currentCaret);
-            if (HasNonWhitespaceAfterCursor(currentLineAfterCursor))
-            {
-                Logger.Log("Skip", "mid-line at render time (text appeared after cursor on same line)");
-                return;
-            }
-
             ShowSuggestion(anchor, completion);
         }
 
@@ -259,6 +264,16 @@ namespace OllamaCodeCompletions
         {
             _suggestion = text;
             _anchor = anchor;
+
+            // Determine whether the cursor is mid-line so accept knows whether to replace
+            // the rest of the line or insert at the cursor.
+            int anchorPos = anchor.GetPosition(_view.TextSnapshot);
+            ITextSnapshotLine anchorLine = _view.TextSnapshot.GetLineFromPosition(anchorPos);
+            string textAfterAnchor = _view.TextSnapshot.GetText(anchorPos, anchorLine.End.Position - anchorPos);
+            _insertionMode = HasNonWhitespaceAfterCursor(textAfterAnchor)
+                ? InsertionMode.ReplaceToEndOfLine
+                : InsertionMode.InsertAtCursor;
+
             EnsureLayer();
 
             string[] lines = text.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None);
@@ -277,6 +292,31 @@ namespace OllamaCodeCompletions
             else
             {
                 RedrawGhost();
+            }
+
+            SnapshotSpan? span = ComputeAffectedSpan();
+            SuggestionStateChanged?.Invoke(this, new SuggestionStateChangedEventArgs(span));
+        }
+
+        private SnapshotSpan? ComputeAffectedSpan()
+        {
+            if (_anchor == null) return null;
+            try
+            {
+                ITextSnapshot snapshot = _view.TextSnapshot;
+                int pos = _anchor.GetPosition(snapshot);
+                ITextSnapshotLine line = snapshot.GetLineFromPosition(pos);
+                return new SnapshotSpan(snapshot, pos, line.End.Position - pos);
+            }
+            catch (ArgumentException ex)
+            {
+                Logger.LogException("Render", ex);
+                return null;
+            }
+            catch (InvalidOperationException ex)
+            {
+                Logger.LogException("Render", ex);
+                return null;
             }
         }
 
@@ -394,11 +434,15 @@ namespace OllamaCodeCompletions
 
         public void DismissSuggestion()
         {
+            // Compute affected span before clearing state — _anchor is needed.
+            SnapshotSpan? affectedSpan = ComputeAffectedSpan();
+
             int prevExtraLineCount = _extraLineCount;
             ITrackingPoint prevAnchor = _anchor;
 
             _suggestion = null;
             _anchor = null;
+            _insertionMode = InsertionMode.InsertAtCursor;
             _extraLineCount = 0;
             _layer?.RemoveAllAdornments();
 
@@ -406,6 +450,9 @@ namespace OllamaCodeCompletions
             // real lines down below the old anchor.
             if (prevExtraLineCount > 0 && prevAnchor != null)
                 InvalidateAnchorLineTransformAt(prevAnchor);
+
+            // Fire after state is cleared so GetTags sees no active suggestion and emits no tag.
+            SuggestionStateChanged?.Invoke(this, new SuggestionStateChangedEventArgs(affectedSpan));
         }
 
         // ---------------------- line transform support ----------------------
@@ -469,13 +516,15 @@ namespace OllamaCodeCompletions
 
         /// <summary>
         /// Inserts the ghosted text into the buffer at the anchor and moves
-        /// the caret to the end of the inserted span.
+        /// the caret to the end of the inserted span. In ReplaceToEndOfLine mode,
+        /// the existing text from the anchor to end-of-line is replaced.
         /// </summary>
         public bool AcceptSuggestion()
         {
             if (!HasActiveSuggestion || _anchor == null) return false;
 
             string text = _suggestion;
+            InsertionMode mode = _insertionMode;
             int pos = _anchor.GetPosition(_view.TextSnapshot);
 
             // Clear visual state first so the buffer-changed handler doesn't
@@ -487,7 +536,15 @@ namespace OllamaCodeCompletions
             {
                 using (var edit = _view.TextBuffer.CreateEdit())
                 {
-                    edit.Insert(pos, text);
+                    if (mode == InsertionMode.ReplaceToEndOfLine)
+                    {
+                        ITextSnapshotLine currentLine = _view.TextSnapshot.GetLineFromPosition(pos);
+                        edit.Replace(pos, currentLine.End.Position - pos, text);
+                    }
+                    else
+                    {
+                        edit.Insert(pos, text);
+                    }
                     edit.Apply();
                 }
                 int newPos = pos + text.Length;
@@ -525,9 +582,6 @@ namespace OllamaCodeCompletions
             int suffixEnd = Math.Min(snapshot.Length, caret + Math.Max(0, opts.MaxSuffixChars));
             string prefix = snapshot.GetText(prefixStart, caret - prefixStart);
             string suffix = snapshot.GetText(caret, suffixEnd - caret);
-
-            if (HasNonWhitespaceAfterCursor(GetLineAfterCursor(snapshot, caret)))
-                return false;
 
             // Match the header prepended by RequestSuggestionAsync so cache keys align.
             string fileHeader = FileHeaderBuilder.TryBuildFileHeader(_view);
@@ -607,12 +661,6 @@ namespace OllamaCodeCompletions
         }
 
         // ---------------------- mid-line helpers ----------------------
-
-        private static string GetLineAfterCursor(ITextSnapshot snapshot, int caret)
-        {
-            ITextSnapshotLine line = snapshot.GetLineFromPosition(caret);
-            return snapshot.GetText(caret, line.End.Position - caret);
-        }
 
         private static bool HasNonWhitespaceAfterCursor(string lineAfterCursor)
             => !string.IsNullOrWhiteSpace(lineAfterCursor);
